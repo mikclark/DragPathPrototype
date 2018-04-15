@@ -1,0 +1,21 @@
+<html ng-app="pathmaker">
+    <link href="style.css" rel="stylesheet"/>
+    <script src="angular.min.js"></script>
+    <script src="app.js"></script>
+    <script src="path.controller.js"></script>
+    
+    <body ng-controller="PathCtrl">
+        <div id="spacecanvas"
+             class="space"
+             ng-mousedown="isClickOnSprite()"
+             ng-mousemove="drawing && drawPath($event)"
+             ng-mouseleave="drawing = false"
+             ng-mouseup="drawing = false">
+            <div class="box" ng-style="sprite" ng-init="initialize()"></div>
+            <div ng-repeat="pt in pathPoints" class="point" ng-style="pt">
+        </div>
+            
+        </div>
+        
+    </body>
+</html>

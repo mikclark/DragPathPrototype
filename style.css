@@ -1,0 +1,22 @@
+.box {
+    width: 19px;
+    height: 19px;
+    margin: -10px;
+    border: 1px solid black;
+    border-radius: 10px;
+    position: fixed;
+}
+.point {
+    width: 3px;
+    height: 3px;
+    margin: -1px;
+    background: black;
+    position: fixed;
+}
+.space {
+    margin: 5%;
+    width: 80%;
+    height: 80%;
+    background: lightgray;
+    border: 1px solid green;
+}
