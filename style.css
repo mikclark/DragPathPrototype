@@ -1,9 +1,5 @@
 .box {
-    width: 19px;
-    height: 19px;
-    margin: -10px;
     border: 1px solid black;
-    border-radius: 10px;
     position: fixed;
 }
 .point {
@@ -14,9 +10,19 @@
     position: fixed;
 }
 .space {
-    margin: 5%;
-    width: 80%;
-    height: 80%;
-    background: lightgray;
-    border: 1px solid green;
+    margin: 0%;
+    width: 100%;
+    height: 100%;
+    background: black;
+}
+.flightpath {
+    fill: none;
+    stroke: white;
+    stroke-width: 2px;
+}
+
+.shipShape {
+    stroke: red;
+    stroke-width: 1;
+    fill: pink;
 }

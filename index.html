@@ -3,19 +3,30 @@
     <script src="angular.min.js"></script>
     <script src="app.js"></script>
     <script src="path.controller.js"></script>
+    <script src="ships.js"></script>
+    <script src="trig.js"></script>
     
-    <body ng-controller="PathCtrl">
-        <div id="spacecanvas"
+    <body ng-controller="PathCtrl" ng-init="initialize()">
+        <svg id="spacecanvas"
              class="space"
-             ng-mousedown="isClickOnSprite()"
+             ng-mousedown="isClickOnSprite($event)"
              ng-mousemove="drawing && drawPath($event)"
              ng-mouseleave="drawing = false"
-             ng-mouseup="drawing = false">
-            <div class="box" ng-style="sprite" ng-init="initialize()"></div>
-            <div ng-repeat="pt in pathPoints" class="point" ng-style="pt">
-        </div>
+             ng-mouseup="drawing && beginFlightPath()">
             
-        </div>
-        
+            <!--circle class="box" ng-style="sprite" ng-init="initialize()"></circle-->
+            <polygon ng-repeat="eachShape in sprite.shape"
+                     points="{{formatPoints(eachShape.points, sprite.cx, sprite.cy, sprite.currentAngle) || ''}}"
+                     ng-style="eachShape.style"
+                     class="shipShape" >
+            </polygon>
+            
+            <polyline points="{{formattedPath || ''}}" class="flightPath"></polyline>
+            
+        </svg>
+        <!--div ng-if="false">
+            <pre>pathPoints = {{pathPoints | json}}</pre>
+            <pre>sprite = {{sprite | json}}</pre>
+        </div-->
     </body>
 </html>
