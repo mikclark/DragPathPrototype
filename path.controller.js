@@ -14,7 +14,7 @@ app.controller('PathCtrl', function PathCtrl($scope, $window, $interval) {
         $scope.sprite = {
             cx: $window.innerWidth/2,
             cy: $window.innerHeight/2,
-            currentAngle: 1.5*Math.PI,
+            currentAngle: -0.5*Math.PI,
             fill: 'cyan',
             r: radius,
             shape: createXWing(),
@@ -51,13 +51,22 @@ app.controller('PathCtrl', function PathCtrl($scope, $window, $interval) {
         if ( d && d >= $scope.sprite.r ) {
             var dx = event.x - lastPoint.x;
             var dy = event.y - lastPoint.y;
-            var dslope = Math.sqrt(dx*dx + dy*dy);
             var currentPoint = {
                 x: event.x,
                 y: event.y,
                 time: d/$scope.sprite.velocity + lastPoint.time,
                 angle: Math.atan2(dy, dx)
             };
+            
+            // Update the "angle" of the previous* point using the midpoint-angle approximation
+            if($scope.pathPoints.length > 2) {
+                var secondLastPoint = $scope.pathPoints[$scope.pathPoints.length - 2];
+                var d2x = event.x - secondLastPoint.x;
+                var d2y = event.y - secondLastPoint.y;
+                lastPoint.angle = Math.atan2(d2y, d2x);
+            }
+            
+            // Now add the new point to pathPoints.
             $scope.pathPoints.push(currentPoint);
         }
     }
