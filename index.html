@@ -23,10 +23,21 @@
             
             <polyline points="{{formattedPath || ''}}" class="flightPath"></polyline>
             
+            <polyline points="{{formatPoints(test.inputPoints, 100, 100)}}" class="testPath1"></polyline>
+            <polyline points="{{formatPoints(test.outputPoints, 100, 100)}}" class="testPath2"></polyline>
+            
+            <polyline points="{{formatPoints(test.inputPoints2, 100, 250)}}" class="testPath1"></polyline>
+            <polyline points="{{formatPoints(test.outputPoints2, 100, 250)}}" class="testPath2"></polyline>
+            
+            <polyline points="{{formatPoints(test.inputPoints3, 100, 400)}}" class="testPath1"></polyline>
+            <polyline points="{{formatPoints(test.outputPoints3, 100, 400)}}" class="testPath2"></polyline>
+            
         </svg>
-        <!--div ng-if="false">
+        <div ng-if="true">
+            <div>Catmull-Rom inputPoints = {{test.inputPoints}}</div>
+            <div>Catmull-Rom outputPoints = {{test.outputPoints}}</div>
             <pre>pathPoints = {{pathPoints | json}}</pre>
             <pre>sprite = {{sprite | json}}</pre>
-        </div-->
+        </div>
     </body>
 </html>

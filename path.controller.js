@@ -20,6 +20,20 @@ app.controller('PathCtrl', function PathCtrl($scope, $window, $interval) {
             shape: createXWing(),
             velocity: 150
         };
+        
+        $scope.test = {
+            inputPoints: [{x:25,y:100}, {x:50, y:100}, {x:100,y:200}, {x:200,y:200}, {x:200,y:100}],
+            inputPoints2: [{x:25,y:100}, {x:75, y:100}, {x:100,y:200}, {x:200,y:200}, {x:200,y:100}],
+            inputPoints3: [{x:25,y:100}, {x:100, y:100}, {x:100,y:200}, {x:200,y:200}, {x:200,y:100}]
+        };
+        function getTheta0(points){
+            var dy = points[1].y - points[0].y;
+            var dx = points[1].x - points[0].x;
+            return Math.atan2(dy, dx);
+        }
+        $scope.test.outputPoints = addSmoothPointsToPath($scope.test.inputPoints, getTheta0($scope.test.inputPoints));
+        $scope.test.outputPoints2 = addSmoothPointsToPath($scope.test.inputPoints2, getTheta0($scope.test.inputPoints2));
+        $scope.test.outputPoints3 = addSmoothPointsToPath($scope.test.inputPoints3, getTheta0($scope.test.inputPoints3));
     };
     
     $scope.isClickOnSprite = function(event){
@@ -78,7 +92,7 @@ app.controller('PathCtrl', function PathCtrl($scope, $window, $interval) {
         return rotatedPoints.map(function(pt){return (pt.x + cx) + "," + (pt.y + cy);}).join(" ");
     }
     
-    function getDistance(r1, r2) {
+    /*function getDistance(r1, r2) {
         try {
             var dx = (r1.x || r1.cx) - (r2.x || r2.cx);
             var dy = (r1.y || r1.cy) - (r2.y || r2.cy);
@@ -90,7 +104,7 @@ app.controller('PathCtrl', function PathCtrl($scope, $window, $interval) {
                 throw err;
             }
         }
-    }
+    }*/
     
     function getCosTheta(point1, point2, point3){
         // Use the definition of "dot product" to calculate cos(angle made by 3 points)
