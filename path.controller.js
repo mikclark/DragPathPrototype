@@ -14,7 +14,7 @@ app.controller('PathCtrl', function PathCtrl($scope, $window, $interval) {
         $scope.sprite = {
             cx: $window.innerWidth/2,
             cy: $window.innerHeight/2,
-            currentAngle: 1.5*Math.PI,
+            currentAngle: -0.5*Math.PI,
             fill: 'cyan',
             r: radius,
             shape: createXWing(),
@@ -49,14 +49,9 @@ app.controller('PathCtrl', function PathCtrl($scope, $window, $interval) {
         var d = getDistance(event, lastPoint);
         
         if ( d && d >= $scope.sprite.r ) {
-            var dx = event.x - lastPoint.x;
-            var dy = event.y - lastPoint.y;
-            var dslope = Math.sqrt(dx*dx + dy*dy);
             var currentPoint = {
                 x: event.x,
-                y: event.y,
-                time: d/$scope.sprite.velocity + lastPoint.time,
-                angle: Math.atan2(dy, dx)
+                y: event.y
             };
             $scope.pathPoints.push(currentPoint);
         }
@@ -103,8 +98,25 @@ app.controller('PathCtrl', function PathCtrl($scope, $window, $interval) {
         $scope.drawing = false;
         $scope.flightStartTime = new Date();
         $scope.formattedPath = $scope.formatPoints($scope.pathPoints);
+        $scope.formattedPath = $scope.formatPoints([{x:100,y:100}, {x:400,y:400}]);
+        $scope.flightPathOfArcs = PathOfArcs($scope.sprite.velocity, $scope.sprite.currentAngle, $scope.pathPoints);
+        $scope.interpolatedPath = $scope.flightPathOfArcs.arcs.reduce(
+            function(interpolatedList, arc, j) {
+                console.log("arcs.forEach " + j);
+                console.log("  " + JSON.stringify(interpolatedList));
+                var N = 20;
+                var dt = (arc.endTime - arc.startTime) * 0.001 / N;
+                var localList = []
+                for(var i = 0; i < N; i++) {
+                    localList.push(arc.arc.getLocation(i * dt));
+                }
+                return interpolatedList.concat(localList);
+            },
+            []
+        );
+        $scope.formattedPath = $scope.formatPoints($scope.interpolatedPath);
         
-        function calculatePosition(flightTime){
+        /*function calculatePosition(flightTime){
             var fraction = (flightTime - $scope.pathPoints[0].time)/($scope.pathPoints[1].time - $scope.pathPoints[0].time);
             $scope.fraction = fraction;
             if(fraction < 1.0){
@@ -128,7 +140,7 @@ app.controller('PathCtrl', function PathCtrl($scope, $window, $interval) {
         inFlight = $interval(function(){
             var flightTime = 0.001*(new Date() - $scope.flightStartTime);
             calculatePosition(flightTime);
-        }, 30)
+        }, 30)*/
     }
 
 })

@@ -4,7 +4,8 @@
     <script src="app.js"></script>
     <script src="path.controller.js"></script>
     <script src="ships.js"></script>
-    <script src="trig.js"></script>
+    <script src="geometry.js"></script>
+    <script src="pathsolving.js"></script>
     
     <body ng-controller="PathCtrl" ng-init="initialize()">
         <svg id="spacecanvas"
@@ -16,17 +17,19 @@
             
             <!--circle class="box" ng-style="sprite" ng-init="initialize()"></circle-->
             <polygon ng-repeat="eachShape in sprite.shape"
-                     points="{{formatPoints(eachShape.points, sprite.cx, sprite.cy, sprite.currentAngle) || ''}}"
+                     points="{{formatPoints(eachShape.points, sprite.cx, sprite.cy, sprite.currentAngle) || '0,0'}}"
                      ng-style="eachShape.style"
                      class="shipShape" >
             </polygon>
             
-            <polyline points="{{formattedPath || ''}}" class="flightPath"></polyline>
+            <polyline points="{{formattedPath || '0,0'}}" class="flightPath"></polyline>
             
         </svg>
-        <!--div ng-if="false">
+        <div ng-if="true">
+            <div>{{flightPathOfArcs.length}}</div>
+            <pre>interpolated = {{interpolatedPoints | json}}</pre>
             <pre>pathPoints = {{pathPoints | json}}</pre>
             <pre>sprite = {{sprite | json}}</pre>
-        </div-->
+        </div>
     </body>
 </html>
