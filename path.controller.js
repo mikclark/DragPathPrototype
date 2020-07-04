@@ -21,19 +21,20 @@ app.controller('PathCtrl', function PathCtrl($scope, $window, $interval) {
             velocity: 150
         };
         
+        var hermite1 = new HermiteSpline({x:100,y:100}, {x:200,y:100}, {x:0,y:150}, {x:0,y:-150});
         $scope.test = {
-            inputPoints: [{x:25,y:100}, {x:50, y:100}, {x:100,y:200}, {x:200,y:200}, {x:200,y:100}],
-            inputPoints2: [{x:25,y:100}, {x:75, y:100}, {x:100,y:200}, {x:200,y:200}, {x:200,y:100}],
-            inputPoints3: [{x:25,y:100}, {x:100, y:100}, {x:100,y:200}, {x:200,y:200}, {x:200,y:100}]
+            inputPoints: [{x:100,y:100},{x:100,y:200},{x:200,y:200},{x:200,y:100}],
+            outputPoints: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20].map(
+                function(i){
+                    return hermite1.evaluateAt(i/20.0, true);
+                }
+            ),
+            /*outputPoints2: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20].map(
+                function(i){
+                    return hermite2.evaluateAt(i/20.0, true);
+                }
+            ),*/
         };
-        function getTheta0(points){
-            var dy = points[1].y - points[0].y;
-            var dx = points[1].x - points[0].x;
-            return Math.atan2(dy, dx);
-        }
-        $scope.test.outputPoints = addSmoothPointsToPath($scope.test.inputPoints, getTheta0($scope.test.inputPoints));
-        $scope.test.outputPoints2 = addSmoothPointsToPath($scope.test.inputPoints2, getTheta0($scope.test.inputPoints2));
-        $scope.test.outputPoints3 = addSmoothPointsToPath($scope.test.inputPoints3, getTheta0($scope.test.inputPoints3));
     };
     
     $scope.isClickOnSprite = function(event){

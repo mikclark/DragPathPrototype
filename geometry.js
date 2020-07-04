@@ -93,6 +93,91 @@ function addSmoothPointsToPath(pathPoints, theta0){
     
 }
 
+function HermiteSplineChainWithFiniteDifferenceTangents(pathPoints, theta0) {
+    var tangent1 = {
+        x: Math.cos(theta0),
+        y: Math.sin(theta0)
+    };
+    for(var iPoint = 1; iPoint < pathPoints.length - 1; iPoint++) {
+        var d2x = pathPoints[iPoint+1].x - pathPoints[iPoint-1].x;
+        var d2y = pathPoints[iPoint+1].y - pathPoints[iPoint-1].y;
+        var d = Math.sqrt(d2x*d2x+d2y*d2y);
+        var tangent2 = {
+            x: d2x/d,
+            y: d2y/d
+        };
+        
+        var spline = HermiteSpline(pathPoints[iPoint-1], pathPoints[iPoint], tangent1, tangent2);
+        var arcLength = spline.arcLengthApproximation();
+    }
+    
+}
+
+function HermiteSpline(point1, point2, tangent1, tangent2) {
+    // Algorithm from https://en.wikipedia.org/wiki/Cubic_Hermite_spline#Interpolation_on_a_single_interval
+    this.point1 = point1;
+    this.point2 = point2;
+    this.tangent1 = tangent1;
+    this.tangent2 = tangent2;
+    console.log("HermiteSpline(" + JSON.stringify(this.point1) + ", " + JSON.stringify(this.point2) + ", " + JSON.stringify(this.tangent1) + ", " + JSON.stringify(this.tangent2) + ")");
+    
+    this.evaluateAt = function(t, doNotComputeTheta){
+        console.log("HermiteSpline evaluateAt(" + t + ") : " + JSON.stringify(this.point1) + ", " + JSON.stringify(this.point2) + ", " + JSON.stringify(this.tangent1) + ", " + JSON.stringify(this.tangent2));
+        var h00 = (1.0 + 2.0*t) * (1.0 - t) * (1.0 - t);
+        var h10 = t * (1.0 - t) * (1.0 - t);
+        var h01 = t * t * (3.0 - 2.0*t);
+        var h11 = t * t * (t - 1.0);
+        
+        console.log("h = " + h00 + ", " + h10 + ", " + h01 + ", " + h11);
+        console.log("x = " + h00*this.point1.x + ", " + h10*this.tangent1.x + ", " + h01*this.point2.x + ", " + h11*this.tangent2.x);
+        console.log("y = " + h00*this.point1.y + ", " + h10*this.tangent1.y + ", " + h01*this.point2.y + ", " + h11*this.tangent2.y);
+        
+        var result = {
+            x: h00*this.point1.x + h10*this.tangent1.x + h01*this.point2.x + h11*this.tangent2.x,
+            y: h00*this.point1.y + h10*this.tangent1.y + h01*this.point2.y + h11*this.tangent2.y,
+            theta: Math.atan2(dydt, dxdt)
+        }
+        if(!doNotComputeTheta){
+            var d00 = 6.0 * t * (1.0 + t);
+            var d10 = (1 - t) * (3.0 * t - 1.0);
+            var d01 = 6.0 * t * (1.0 - t);
+            var d11 = t * (3.0 * t - 2.0);
+
+            var dxdt = d00*this.point1.x + d10*this.tangent1.x + d01*this.point2.x + d11*this.tangent2.x;
+            var dydt = d00*this.point1.y + d10*this.tangent1.y + d01*this.point2.y + d11*this.tangent2.y;
+            result.theta = Math.atan2(dydt, dxdt);
+        }
+        return result;
+    }
+    
+    this.arcLengthApproximation = function(){
+        var nSegments = 32;
+        var dt = 1.0/nSegments;
+        var points = [];
+        for(var i = 0; i <= nSegments; i++){
+            points.push(this.evaluateAt(dt*i));
+        }
+        
+        var lengthAllPoints = 0.0;
+        var lengthHalfPoints = 0.0;
+        for(var j = 1; j <= nSegments; j++){
+            lengthAllPoints += getDistance(points[j], points[j-1]);
+            if(j % 2 == 0){
+                lengthHalfPoints += getDistance(points[j], points[j-2]);
+            }
+        }
+        
+        // Take two approximate answers, one sampled at half the Reimann-interval as the other, and
+        // extrapolate to the case of having a Reimann-interval approaching 0. Extrapolate assuming
+        // that the error of the approximation increases with the Reimann-interval squared.
+        var result = lengthAllPoints + (lengthAllPoints - lengthHalfPoints)/(1.0 - 0.25)*(0.25)
+        console.log(lengthHalfPoints + " -> " + lengthAllPoints + " -> " + result);
+        return result;
+    }
+    
+    return this;
+}
+
 function CatmullRomSpline(points, t0) {
     // ALgorithm taken from https://en.wikipedia.org/wiki/Centripetal_Catmull%E2%80%93Rom_spline
     function getNextT(tInit, pInit, pNext) {
