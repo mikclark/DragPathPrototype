@@ -21,19 +21,18 @@
                      class="shipShape" >
             </polygon>
             
-            <polyline points="{{formattedPath || ''}}" class="flightPath"></polyline>
+            <polyline ng-if="formattedPath" points="{{formattedPath || ''}}" class="flightPath"></polyline>
             
-            <polyline points="{{formatPoints(test.inputPoints, 100, 100)}}" class="testPath1"></polyline>
-            <polyline points="{{formatPoints(test.outputPoints, 100, 100)}}" class="testPath2"></polyline>
+            <polyline ng-if="test.inputPoints" points="{{formatPoints(test.inputPoints, 100, 100)}}" class="testPath1"></polyline>
+            <polyline ng-if="test.outputPoints" points="{{formatPoints(test.outputPoints, 100, 100)}}" class="testPath2"></polyline>
+            <polyline ng-if="test.outputPoints2" points="{{formatPoints(test.outputPoints2, 100, 100)}}" class="testPath3"></polyline>
             
-            <polyline points="{{formatPoints(test.inputPoints, 100, 250)}}" class="testPath1"></polyline>
-            <polyline points="{{formatPoints(test.outputPoints2, 100, 250)}}" class="testPath2"></polyline>
             
         </svg>
         <div ng-if="true">
             <div>inputPoints = {{test.inputPoints}}</div>
             <div>outputPoints = {{formatPoints(test.outputPoints)}}</div>
-            <div>outputPoints2 = {{formatPoints(test.outputPoints2)}}</div>
+            <div>outputPoints = {{formatPoints(test.outputPoints)}}</div>
             <pre>pathPoints = {{pathPoints | json}}</pre>
             <pre>sprite = {{sprite | json}}</pre>
         </div>

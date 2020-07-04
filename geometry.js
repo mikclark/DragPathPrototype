@@ -93,22 +93,74 @@ function addSmoothPointsToPath(pathPoints, theta0){
     
 }
 
-function HermiteSplineChainWithFiniteDifferenceTangents(pathPoints, theta0) {
+function HermiteSplineChainWithCatmullRomTangents(constantV, pathPoints, theta0) {
+    this.V = constantV;
+    this.splines = [];
+    
+    var currentTime = 0.0;
+    
+    // Assume that the tangent at point (i) is given by averaging the slopes of the
+    // two adject line segments, from (i-1) to (i) and from (i) to (i+1).
+    // The tangent at the first point is given as theta0.
+    // The tangent at the last point is assumed to be equivalent to the vector between the last two points.
     var tangent1 = {
-        x: Math.cos(theta0),
-        y: Math.sin(theta0)
+        x: this.V * Math.cos(theta0),
+        y: this.V * Math.sin(theta0)
     };
-    for(var iPoint = 1; iPoint < pathPoints.length - 1; iPoint++) {
-        var d2x = pathPoints[iPoint+1].x - pathPoints[iPoint-1].x;
-        var d2y = pathPoints[iPoint+1].y - pathPoints[iPoint-1].y;
+    for(var iPoint = 0; iPoint < pathPoints.length - 1; iPoint++) {
+        var d2x;
+        var d2y;
+        if(iPoint == pathPoints.length - 2) {
+            d2x = pathPoints[iPoint+1].x - pathPoints[iPoint].x;
+            d2y = pathPoints[iPoint+1].y - pathPoints[iPoint].y;
+        } else {
+            d2x = pathPoints[iPoint+2].x - pathPoints[iPoint].x;
+            d2y = pathPoints[iPoint+2].y - pathPoints[iPoint].y;
+        }
         var d = Math.sqrt(d2x*d2x+d2y*d2y);
         var tangent2 = {
-            x: d2x/d,
-            y: d2y/d
+            x: this.V * d2x/d,
+            y: this.V * d2y/d
         };
         
-        var spline = HermiteSpline(pathPoints[iPoint-1], pathPoints[iPoint], tangent1, tangent2);
+        var spline = new HermiteSpline(pathPoints[iPoint], pathPoints[iPoint+1], tangent1, tangent2);
         var arcLength = spline.arcLengthApproximation();
+        this.splines.push({
+            function: spline,
+            arcLength: arcLength,
+            startTime: currentTime,
+            endTime: currentTime + arcLength/this.V
+        });
+        
+        currentTime += arcLength/this.V;
+        tangent1 = tangent2;
+    }
+    console.log("splines.length = " + this.splines.length);
+    console.log("Start times = " + JSON.stringify(this.splines.map(function(s){return s.startTime})));
+    
+    // Now "this.splines" contains the entire path in terms of splines.
+    
+    this.evaluateAt = function(time) {
+        var currentSpline = this.splines.find(
+            function(s){
+                return (s.startTime <= time) && (s.endTime >= time);
+            }
+        );
+        
+        var t = (time = currentSpline.startTime)/(currentSpline.endTime = currentSpline.startTime);
+        return currentSpline.function.evaluateAt(t);
+    }
+    
+    this.wholeShape = function(nPointsPerSegment){
+        var wholeShapePoints = [this.splines[0].function.evaluateAt(0)];
+        this.splines.forEach(
+            function(s) {
+                for(var j = 1; j <= nPointsPerSegment; j++){
+                    wholeShapePoints.push(s.function.evaluateAt(1.0*j/nPointsPerSegment, true));
+                }
+            }
+        )
+        return wholeShapePoints;
     }
     
 }
@@ -119,7 +171,7 @@ function HermiteSpline(point1, point2, tangent1, tangent2) {
     this.point2 = point2;
     this.tangent1 = tangent1;
     this.tangent2 = tangent2;
-    console.log("HermiteSpline(" + JSON.stringify(this.point1) + ", " + JSON.stringify(this.point2) + ", " + JSON.stringify(this.tangent1) + ", " + JSON.stringify(this.tangent2) + ")");
+    //console.log("HermiteSpline(" + JSON.stringify(this.point1) + ", " + JSON.stringify(this.point2) + ", " + JSON.stringify(this.tangent1) + ", " + JSON.stringify(this.tangent2) + ")");
     
     this.evaluateAt = function(t, doNotComputeTheta){
         console.log("HermiteSpline evaluateAt(" + t + ") : " + JSON.stringify(this.point1) + ", " + JSON.stringify(this.point2) + ", " + JSON.stringify(this.tangent1) + ", " + JSON.stringify(this.tangent2));
@@ -128,9 +180,9 @@ function HermiteSpline(point1, point2, tangent1, tangent2) {
         var h01 = t * t * (3.0 - 2.0*t);
         var h11 = t * t * (t - 1.0);
         
-        console.log("h = " + h00 + ", " + h10 + ", " + h01 + ", " + h11);
-        console.log("x = " + h00*this.point1.x + ", " + h10*this.tangent1.x + ", " + h01*this.point2.x + ", " + h11*this.tangent2.x);
-        console.log("y = " + h00*this.point1.y + ", " + h10*this.tangent1.y + ", " + h01*this.point2.y + ", " + h11*this.tangent2.y);
+        //console.log("h = " + h00 + ", " + h10 + ", " + h01 + ", " + h11);
+        //console.log("x = " + h00*this.point1.x + ", " + h10*this.tangent1.x + ", " + h01*this.point2.x + ", " + h11*this.tangent2.x);
+        //console.log("y = " + h00*this.point1.y + ", " + h10*this.tangent1.y + ", " + h01*this.point2.y + ", " + h11*this.tangent2.y);
         
         var result = {
             x: h00*this.point1.x + h10*this.tangent1.x + h01*this.point2.x + h11*this.tangent2.x,

@@ -21,19 +21,13 @@ app.controller('PathCtrl', function PathCtrl($scope, $window, $interval) {
             velocity: 150
         };
         
-        var hermite1 = new HermiteSpline({x:100,y:100}, {x:200,y:100}, {x:0,y:150}, {x:0,y:-150});
+        var inputPoints = [{x:100,y:100},{x:100,y:200},{x:200,y:200},{x:200,y:100}];
+        var hermite1 = new HermiteSplineChainWithCatmullRomTangents($scope.sprite.velocity, inputPoints, Math.PI);
+        //var hermite2 = new HermiteSplineChainWithCatmullRomTangents($scope.sprite.velocity, inputPoints, Math.PI);
         $scope.test = {
-            inputPoints: [{x:100,y:100},{x:100,y:200},{x:200,y:200},{x:200,y:100}],
-            outputPoints: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20].map(
-                function(i){
-                    return hermite1.evaluateAt(i/20.0, true);
-                }
-            ),
-            /*outputPoints2: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20].map(
-                function(i){
-                    return hermite2.evaluateAt(i/20.0, true);
-                }
-            ),*/
+            inputPoints: inputPoints,
+            outputPoints: hermite1.wholeShape(20),
+            //outputPoints2: hermite2.wholeShape(20)
         };
     };
     
@@ -87,6 +81,9 @@ app.controller('PathCtrl', function PathCtrl($scope, $window, $interval) {
     }
     
     $scope.formatPoints = function(points, cx, cy, angle){
+        if(!points){
+            return "0,0";
+        }
         var rotatedPoints = angle ? rotatePoints(points, angle) : points;
         cx = cx || 0;
         cy = cy || 0;

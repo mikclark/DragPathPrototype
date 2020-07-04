@@ -30,6 +30,11 @@
     stroke: cyan;
     stroke-width: 1px;
 }
+.testPath2 {
+    fill: none;
+    stroke: yellow;
+    stroke-width: 1px;
+}
 
 .shipShape {
     stroke: red;
