@@ -21,20 +21,30 @@
                      class="shipShape" >
             </polygon>
             
-            <polyline ng-if="formattedPath" points="{{formattedPath || ''}}" class="flightPath"></polyline>
+            <polyline points="{{formattedPath || '0,0'}}" class="originalFlightPath"></polyline>
+            <polyline points="{{smoothPath || '0,0'}}" class="smoothFlightPath"></polyline>
             
-            <polyline ng-if="test.inputPoints" points="{{formatPoints(test.inputPoints, 100, 100)}}" class="testPath1"></polyline>
-            <polyline ng-if="test.outputPoints" points="{{formatPoints(test.outputPoints, 100, 100)}}" class="testPath2"></polyline>
-            <polyline ng-if="test.outputPoints2" points="{{formatPoints(test.outputPoints2, 100, 100)}}" class="testPath3"></polyline>
+            <polyline points="{{formatPoints(test.outputPoints)}}" class="smoothFlightPath"></polyline>
             
             
         </svg>
-        <div ng-if="true">
-            <div>inputPoints = {{test.inputPoints}}</div>
-            <div>outputPoints = {{formatPoints(test.outputPoints)}}</div>
-            <div>outputPoints = {{formatPoints(test.outputPoints)}}</div>
-            <pre>pathPoints = {{pathPoints | json}}</pre>
-            <pre>sprite = {{sprite | json}}</pre>
+        <div>
+            <div ng-init="test = {point1:{x:100,y:100}, point2:{x:300,y:100}, theta1:60, theta2:0}">
+                <b>Point1</b>
+                <label>x<input style="number" ng-model="test.point1.x"></label>
+                <label>y<input style="number" ng-model="test.point1.y"></label>
+                <label>theta(o)<input style="number" ng-model="test.theta1"></label>
+            </div>
+            <div>
+                <b>Point2</b>
+                <label>x<input style="number" ng-model="test.point2.x"></label>
+                <label>y<input style="number" ng-model="test.point2.y"></label>
+                <label>theta(o)<input style="number" ng-model="test.theta2"></label>
+            </div>
+            <button ng-click="getOutput(test.point1, test.point2, test.theta1, test.theta2)">Calculate</button>
+            
+            <div>(outputPoints) = {{formatPoints(test.outputPoints)}}</div>
+            <pre>outputPoints = {{test.outputPoints | json}}</pre>
         </div>
     </body>
 </html>

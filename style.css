@@ -20,20 +20,16 @@
     stroke: white;
     stroke-width: 2px;
 }
-.testPath1 {
+.originalFlightPath {
     fill: none;
-    stroke: red;
+    stroke: lightyellow;
     stroke-width: 1px;
 }
-.testPath2 {
+.smoothFlightPath {
     fill: none;
     stroke: cyan;
     stroke-width: 1px;
-}
-.testPath2 {
-    fill: none;
-    stroke: yellow;
-    stroke-width: 1px;
+    stroke-dasharray: 10,10;
 }
 
 .shipShape {

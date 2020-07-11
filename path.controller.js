@@ -21,14 +21,12 @@ app.controller('PathCtrl', function PathCtrl($scope, $window, $interval) {
             velocity: 150
         };
         
-        var inputPoints = [{x:100,y:100},{x:100,y:200},{x:200,y:200},{x:200,y:100}];
-        var hermite1 = new HermiteSplineChainWithCatmullRomTangents($scope.sprite.velocity, inputPoints, Math.PI);
-        //var hermite2 = new HermiteSplineChainWithCatmullRomTangents($scope.sprite.velocity, inputPoints, Math.PI);
-        $scope.test = {
-            inputPoints: inputPoints,
-            outputPoints: hermite1.wholeShape(20),
-            //outputPoints2: hermite2.wholeShape(20)
-        };
+        var inputPoints = [1,2,3,4,5,6,7,8,9,10,11,12].map(function(){return {x:100+Math.random()*400,y:100+Math.random()*400};});
+        var hermite = new HermiteSplineChainWithCatmullRomTangents($scope.sprite.velocity, inputPoints, 0.0);
+        $scope.test = {};
+        $scope.getOutput = function(ip1,ip2,ith1,ith2){
+            $scope.test.outputPoints = solvePathTwoPoints(30, ip1,ip2,ith1*Math.PI/180.0,ith2*Math.PI/180.0);
+        }
     };
     
     $scope.isClickOnSprite = function(event){
@@ -124,32 +122,30 @@ app.controller('PathCtrl', function PathCtrl($scope, $window, $interval) {
         $scope.drawing = false;
         $scope.flightStartTime = new Date();
         $scope.formattedPath = $scope.formatPoints($scope.pathPoints);
+        var timer = new Date();
+        $scope.splineChain = new HermiteSplineChainWithCatmullRomTangents($scope.sprite.velocity, $scope.pathPoints, $scope.sprite.currentAngle);
+        $scope.smoothPath = $scope.formatPoints($scope.splineChain.wholeShape(20));
+        console.log("\nBUILD TIME: \n" + 0.001*(new Date() - timer) + "\n");
         
         function calculatePosition(flightTime){
-            var fraction = (flightTime - $scope.pathPoints[0].time)/($scope.pathPoints[1].time - $scope.pathPoints[0].time);
-            $scope.fraction = fraction;
-            if(fraction < 1.0){
-                $scope.sprite.cx = $scope.pathPoints[0].x + fraction * ($scope.pathPoints[1].x - $scope.pathPoints[0].x);
-                $scope.sprite.cy = $scope.pathPoints[0].y + fraction * ($scope.pathPoints[1].y - $scope.pathPoints[0].y);
-                $scope.sprite.currentAngle = interpolateAngle($scope.pathPoints[0].angle, $scope.pathPoints[1].angle, fraction);
-            } else {
-                if ($scope.pathPoints.length == 2){
-                    // End of the path. Terminate flight loop.
-                    $interval.cancel(inFlight);
-                    inFlight = undefined;
-                    $scope.pathPoints = [];
-                } else {
-                    // Remove this point and repeat the flight path calculation with the new point.
-                    $scope.pathPoints.splice(0,1);
-                    calculatePosition(flightTime);
-                }
+            if (flightTime > $scope.splineChain.endTime){
+                // End of the path. Terminate flight loop.
+                $interval.cancel(inFlight);
+                inFlight = undefined;
+                $scope.pathPoints = [];
+                return;
             }
+            
+            var currentState = $scope.splineChain.evaluateAt(flightTime);
+            $scope.sprite.cx = currentState.x;
+            $scope.sprite.cy = currentState.y;
+            //$scope.sprite.currentAngle = currentState.theta;
         }
         
-        inFlight = $interval(function(){
+        /*var inFlight = $interval(function(){
             var flightTime = 0.001*(new Date() - $scope.flightStartTime);
             calculatePosition(flightTime);
-        }, 30)
+        }, 30)*/
     }
 
 })

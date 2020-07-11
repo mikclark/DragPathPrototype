@@ -1,7 +1,7 @@
 function getDistance(r1, r2) {
     try {
-        var dx = (r1.x || r1.cx) - (r2.x || r2.cx);
-        var dy = (r1.y || r1.cy) - (r2.y || r2.cy);
+        var dx = ((r1.x===null || r1.x===undefined) ? r1.cx : r1.x) - ((r2.x===null || r2.x===undefined) ? r2.cx : r2.x);
+        var dy = ((r1.y===null || r1.y===undefined) ? r1.cy : r1.y) - ((r2.y===null || r2.y===undefined) ? r2.cy : r2.y);
         return Math.sqrt(dx*dx + dy*dy);
     } catch(err) {
         if(err.name === "TypeError"){
@@ -53,220 +53,216 @@ function rotateShape(shape, theta){
 }
 
 
-function addSmoothPointsToPath(pathPoints, theta0){
-    // Cannot use Catmull-Rom on less than 4 points.
-    if (pathPoints.length < 4) return pathPoints;
-    
-    function generateNPoints(splineObject, nPoints, tStart, tEnd) {
-        // tStart is inclusive. tEnd is not inclusive.
-        var dt = (tEnd - tStart)/nPoints;
-        var newPoints = [];
-        for(var i = 0; i < nPoints; i++){
-            newPoints.push( splineObject.evaluateAt(tStart + i * dt) );
-        }
-        return newPoints;
-    }
-    var smoothPath = [];
-    
-    // First leg.
-    var tempDistance = 100.0;
-    var tempPoints = [{
-        x: pathPoints[0].x - tempDistance * Math.cos(theta0),
-        y: pathPoints[0].y - tempDistance * Math.sin(theta0),
-    }];
-    tempPoints = tempPoints.concat(pathPoints.slice(0,3));
-    var spline = CatmullRomSpline(tempPoints, 0.0);
-    //smoothPath = smoothPath.concat(generateNPoints(spline, 10, spline.t[0], spline.t[1]));
-    
-    // All middle legs.
-    var t0 = 0.0;
-    for(var iPoint = 0; iPoint < pathPoints.length - 3; iPoint++) {
-        spline = CatmullRomSpline(pathPoints.slice(iPoint,iPoint+4), t0);
-        smoothPath = smoothPath.concat(generateNPoints(spline, 10, spline.t[1], spline.t[2]));
-        t0 = spline.t[1];
-    }
-    
-    // Last leg. Do not rebuild the spline.
-    //smoothPath = smoothPath.concat(generateNPoints(spline, 10, spline.t[2], spline.t[3]));
-    smoothPath.push(spline.evaluateAt(spline.t[2]));
-    return smoothPath;
-    
-}
 
-function HermiteSplineChainWithCatmullRomTangents(constantV, pathPoints, theta0) {
-    this.V = constantV;
-    this.splines = [];
-    
-    var currentTime = 0.0;
-    
-    // Assume that the tangent at point (i) is given by averaging the slopes of the
-    // two adject line segments, from (i-1) to (i) and from (i) to (i+1).
-    // The tangent at the first point is given as theta0.
-    // The tangent at the last point is assumed to be equivalent to the vector between the last two points.
-    var tangent1 = {
-        x: this.V * Math.cos(theta0),
-        y: this.V * Math.sin(theta0)
+
+
+function solvePathTwoPoints(radiusOfTurn, point1, point2, theta1, theta2){
+    var tangentP2P = {
+        x: point2.x - point2.x,
+        y: point2.y - point1.y
     };
-    for(var iPoint = 0; iPoint < pathPoints.length - 1; iPoint++) {
-        var d2x;
-        var d2y;
-        if(iPoint == pathPoints.length - 2) {
-            d2x = pathPoints[iPoint+1].x - pathPoints[iPoint].x;
-            d2y = pathPoints[iPoint+1].y - pathPoints[iPoint].y;
+    var thetaP2P = Math.atan2(tangentP2P.y, tangentP2P.x);
+    
+    // Super special case: all lines colinear.
+    if((thetaP2P == theta1) && (thetaP2P == theta2)){
+        return [{
+            x: point2.x,
+            y: point2.y,
+            theta: theta2
+        }];
+    }
+    
+    var tangent1 = {
+        x: Math.cos(theta1),
+        y: Math.sin(theta1)
+    };
+    var normal1 = {
+        x: tangent1.y,
+        y: -tangent1.x
+    };
+    var center1A = {
+        x: point1.x + radiusOfTurn * normal1.x,
+        y: point1.y + radiusOfTurn * normal1.y
+    };
+    var center1B = {
+        x: point1.x - radiusOfTurn * normal1.x,
+        y: point1.y - radiusOfTurn * normal1.y
+    };
+    
+    var tangent2 = {
+        x: Math.cos(theta2),
+        y: Math.sin(theta2)
+    };
+    var normal2 = {
+        x: tangent2.y,
+        y: -tangent2.x
+    };
+    var center2A = {
+        x: point2.x + radiusOfTurn * normal2.x,
+        y: point2.y + radiusOfTurn * normal2.y
+    };
+    var center2B = {
+        x: point2.x - radiusOfTurn * normal2.x,
+        y: point2.y - radiusOfTurn * normal2.y
+    };
+    
+    console.log(JSON.stringify({
+        "point1": point1,
+        "point2": point2,
+        "tangent1": tangent1,
+        "tangent2":tangent2,
+        "normal1": normal1,
+        "normal2": normal2,
+        "centers": {
+            "center1A": center1A,
+            "center1B": center1B,
+            "center2A": center2A,
+            "center2B": center2B,
+        },
+        "distances":{
+            "c1A to 2": getDistance(center1A, point2),
+            "c1B to 2": getDistance(center1B, point2),
+            "c2A to p1": getDistance(center2A, point1),
+            "c2B to p1": getDistance(center2B, point1)
+        }
+    }, null, 4));
+    
+    var circle1;
+    var circle2;
+    
+    // Locate circle 1
+    if(theta1 != thetaP2P){
+        if(getDistance(center1A, point2) < getDistance(center1B, point2)) {
+            circle1 = {
+                x: center1A.x,
+                y: center1A.y,
+                r: radiusOfTurn,
+                phiStart: theta1 + 0.5 * Math.PI,
+                isNuPositive: false
+            };
         } else {
-            d2x = pathPoints[iPoint+2].x - pathPoints[iPoint].x;
-            d2y = pathPoints[iPoint+2].y - pathPoints[iPoint].y;
+            circle1 = {
+                x: center1B.x,
+                y: center1B.y,
+                r: radiusOfTurn,
+                phiStart:  theta1 - 0.5 * Math.PI,
+                isNuPositive: true
+            };
         }
-        var d = Math.sqrt(d2x*d2x+d2y*d2y);
-        var tangent2 = {
-            x: this.V * d2x/d,
-            y: this.V * d2y/d
+    } else {
+        console.log("1-equal");
+        var ghostPoint2 = {
+            x: point2.x - tangent2.x,
+            y: point2.y - tangent2.y,
         };
-        
-        var spline = new HermiteSpline(pathPoints[iPoint], pathPoints[iPoint+1], tangent1, tangent2);
-        var arcLength = spline.arcLengthApproximation();
-        this.splines.push({
-            function: spline,
-            arcLength: arcLength,
-            startTime: currentTime,
-            endTime: currentTime + arcLength/this.V
+        if(getDistance(center1A, ghostPoint2) < getDistance(center1B, ghostPoint2)) {
+            circle1 = {
+                x: center1A.x,
+                y: center1A.y,
+                r: radiusOfTurn,
+                phiStart: theta1 + 0.5 * Math.PI,
+                isNuPositive: false
+            };
+        } else {
+            circle1 = {
+                x: center1B.x,
+                y: center1B.y,
+                r: radiusOfTurn,
+                phiStart:  theta1 - 0.5 * Math.PI,
+                isNuPositive: true
+            };
+        }
+    }
+    
+    // Locate circle 2
+    if(theta2 != thetaP2P){
+        if(getDistance(center2A, point1) < getDistance(center2B, point1)) {
+            circle2 = {
+                x: center2A.x,
+                y: center2A.y,
+                r: radiusOfTurn,
+                phiEnd: theta2 + 0.5 * Math.PI,
+                isNuPositive: false
+            };
+        } else {
+            circle2 = {
+                x: center2B.x,
+                y: center2B.y,
+                r: radiusOfTurn,
+                phiEnd:  theta2 - 0.5 * Math.PI,
+                isNuPositive: true
+            };
+        }
+    } else {
+        console.log("2-equal");
+        var ghostPoint1 = {
+            x: point1.x + tangent1.x,
+            y: point1.y + tangent1.y,
+        };
+        if(getDistance(center2A, ghostPoint1) < getDistance(center2B, ghostPoint1)) {
+            circle2 = {
+                x: center2A.x,
+                y: center2A.y,
+                r: radiusOfTurn,
+                phiEnd: theta2 + 0.5 * Math.PI,
+                isNuPositive: false
+            };
+        } else {
+            circle2 = {
+                x: center2B.x,
+                y: center2B.y,
+                r: radiusOfTurn,
+                phiEnd:  theta2 - 0.5 * Math.PI,
+                isNuPositive: true
+            };
+        }
+    }
+    console.log(JSON.stringify({"circle1": circle1, "circle2":circle2}, null, 4));
+    
+    // Common tangents of two circles.
+    var deltaTheta;
+    var denominator = radiusOfTurn*radiusOfTurn + (point1.x-point2.x)*(point1.x-point2.x) + (point1.y-point2.y)*(point1.y-point2.y);
+    if(circle1.isNuPositive && circle2.isNuPositive){
+        // Two counter-clockwise circles
+        circle1.phiEnd = thetaP2P - 0.5*Math.PI;
+        circle2.phiStart = thetaP2P - 0.5*Math.PI;
+    } else if (circle1.isNuPositive) {
+        // Circle1 counter-clockwise. Circle2 clockwise.
+        deltaTheta = Math.acos(radiusOfTurn/Math.sqrt(denominator));
+        circle1.phiEnd = thetaP2P - deltaTheta;
+        circle2.phiStart = thetaP2P - Math.PI - deltaTheta;
+    } else if (circle2.isNuPositive) {
+        deltaTheta = Math.acos(radiusOfTurn/Math.sqrt(denominator));
+        circle1.phiEnd = thetaP2P + deltaTheta;
+        circle2.phiStart = thetaP2P + Math.PI + deltaTheta;
+    } else {
+        circle1.phiEnd = thetaP2P + 0.5*Math.PI;
+        circle2.phiStart = thetaP2P + 0.5*Math.PI;
+    }
+    
+    console.log(JSON.stringify({"arc1": circle1, "arc2":circle2}, null, 4));
+    
+    
+    // Construct points
+    var newPoints = [];
+    deltaTheta = Math.PI / 32.0;
+    for(var i1 = 0; i1 <= 32; i1++){
+        var iPhi1 = interpolateAngle(circle1.phiStart, circle1.phiEnd, 0.03125*i1);
+        newPoints.push({
+            x: circle1.x + radiusOfTurn * Math.cos(iPhi1),
+            y: circle1.y + radiusOfTurn * Math.sin(iPhi1),
+            theta: iPhi1 + (circle1.isNuPositive ? 0.5 : -0.5) * Math.PI
         });
-        
-        currentTime += arcLength/this.V;
-        tangent1 = tangent2;
     }
-    console.log("splines.length = " + this.splines.length);
-    console.log("Start times = " + JSON.stringify(this.splines.map(function(s){return s.startTime})));
-    
-    // Now "this.splines" contains the entire path in terms of splines.
-    
-    this.evaluateAt = function(time) {
-        var currentSpline = this.splines.find(
-            function(s){
-                return (s.startTime <= time) && (s.endTime >= time);
-            }
-        );
-        
-        var t = (time = currentSpline.startTime)/(currentSpline.endTime = currentSpline.startTime);
-        return currentSpline.function.evaluateAt(t);
+    for(var i2 = 0; i2 <= 32; i2++){
+        var iPhi2 = interpolateAngle(circle2.phiStart, circle2.phiEnd, 0.03125*i2);
+        newPoints.push({
+            x: circle2.x + radiusOfTurn * Math.cos(iPhi2),
+            y: circle2.y + radiusOfTurn * Math.sin(iPhi2),
+            theta: iPhi2 + (circle2.isNuPositive ? 0.5 : -0.5) * Math.PI
+        });
     }
-    
-    this.wholeShape = function(nPointsPerSegment){
-        var wholeShapePoints = [this.splines[0].function.evaluateAt(0)];
-        this.splines.forEach(
-            function(s) {
-                for(var j = 1; j <= nPointsPerSegment; j++){
-                    wholeShapePoints.push(s.function.evaluateAt(1.0*j/nPointsPerSegment, true));
-                }
-            }
-        )
-        return wholeShapePoints;
-    }
-    
+    return newPoints;
 }
 
-function HermiteSpline(point1, point2, tangent1, tangent2) {
-    // Algorithm from https://en.wikipedia.org/wiki/Cubic_Hermite_spline#Interpolation_on_a_single_interval
-    this.point1 = point1;
-    this.point2 = point2;
-    this.tangent1 = tangent1;
-    this.tangent2 = tangent2;
-    //console.log("HermiteSpline(" + JSON.stringify(this.point1) + ", " + JSON.stringify(this.point2) + ", " + JSON.stringify(this.tangent1) + ", " + JSON.stringify(this.tangent2) + ")");
-    
-    this.evaluateAt = function(t, doNotComputeTheta){
-        console.log("HermiteSpline evaluateAt(" + t + ") : " + JSON.stringify(this.point1) + ", " + JSON.stringify(this.point2) + ", " + JSON.stringify(this.tangent1) + ", " + JSON.stringify(this.tangent2));
-        var h00 = (1.0 + 2.0*t) * (1.0 - t) * (1.0 - t);
-        var h10 = t * (1.0 - t) * (1.0 - t);
-        var h01 = t * t * (3.0 - 2.0*t);
-        var h11 = t * t * (t - 1.0);
-        
-        //console.log("h = " + h00 + ", " + h10 + ", " + h01 + ", " + h11);
-        //console.log("x = " + h00*this.point1.x + ", " + h10*this.tangent1.x + ", " + h01*this.point2.x + ", " + h11*this.tangent2.x);
-        //console.log("y = " + h00*this.point1.y + ", " + h10*this.tangent1.y + ", " + h01*this.point2.y + ", " + h11*this.tangent2.y);
-        
-        var result = {
-            x: h00*this.point1.x + h10*this.tangent1.x + h01*this.point2.x + h11*this.tangent2.x,
-            y: h00*this.point1.y + h10*this.tangent1.y + h01*this.point2.y + h11*this.tangent2.y,
-            theta: Math.atan2(dydt, dxdt)
-        }
-        if(!doNotComputeTheta){
-            var d00 = 6.0 * t * (1.0 + t);
-            var d10 = (1 - t) * (3.0 * t - 1.0);
-            var d01 = 6.0 * t * (1.0 - t);
-            var d11 = t * (3.0 * t - 2.0);
 
-            var dxdt = d00*this.point1.x + d10*this.tangent1.x + d01*this.point2.x + d11*this.tangent2.x;
-            var dydt = d00*this.point1.y + d10*this.tangent1.y + d01*this.point2.y + d11*this.tangent2.y;
-            result.theta = Math.atan2(dydt, dxdt);
-        }
-        return result;
-    }
-    
-    this.arcLengthApproximation = function(){
-        var nSegments = 32;
-        var dt = 1.0/nSegments;
-        var points = [];
-        for(var i = 0; i <= nSegments; i++){
-            points.push(this.evaluateAt(dt*i));
-        }
-        
-        var lengthAllPoints = 0.0;
-        var lengthHalfPoints = 0.0;
-        for(var j = 1; j <= nSegments; j++){
-            lengthAllPoints += getDistance(points[j], points[j-1]);
-            if(j % 2 == 0){
-                lengthHalfPoints += getDistance(points[j], points[j-2]);
-            }
-        }
-        
-        // Take two approximate answers, one sampled at half the Reimann-interval as the other, and
-        // extrapolate to the case of having a Reimann-interval approaching 0. Extrapolate assuming
-        // that the error of the approximation increases with the Reimann-interval squared.
-        var result = lengthAllPoints + (lengthAllPoints - lengthHalfPoints)/(1.0 - 0.25)*(0.25)
-        console.log(lengthHalfPoints + " -> " + lengthAllPoints + " -> " + result);
-        return result;
-    }
-    
-    return this;
-}
-
-function CatmullRomSpline(points, t0) {
-    // ALgorithm taken from https://en.wikipedia.org/wiki/Centripetal_Catmull%E2%80%93Rom_spline
-    function getNextT(tInit, pInit, pNext) {
-        var distance = getDistance(pNext, pInit);
-        return tInit + Math.sqrt(distance);
-    }
-    
-    function averagePoints(p1,p2,f){
-        return {
-            x: f * p1.x + (1.0 - f) * p2.x,
-            y: f * p1.y + (1.0 - f) * p2.y
-        }
-    }
-    
-    this.point = points;
-    this.t = [t0];
-    for(var ii = 1; ii < 4; ii++) {
-        this.t.push( getNextT(this.t[ii-1], this.point[ii-1], this.point[ii]) );
-    }
-    
-    this.evaluateAt = function(t) {
-        var f01 = (this.t[1]-t)/(this.t[1]-this.t[0]);
-        var f02 = (this.t[2]-t)/(this.t[2]-this.t[0]);
-        var f12 = (this.t[2]-t)/(this.t[2]-this.t[1]);
-        var f13 = (this.t[3]-t)/(this.t[3]-this.t[1]);
-        var f23 = (this.t[3]-t)/(this.t[3]-this.t[2]);
-        
-        var A1 = averagePoints(this.point[0], this.point[1], f01);
-        var A2 = averagePoints(this.point[1], this.point[2], f12);
-        var A3 = averagePoints(this.point[2], this.point[3], f23);
-        
-        var B1 = averagePoints(A1, A2, f02);
-        var B2 = averagePoints(A2, A3, f13);
-        
-        var C = averagePoints(B1, B2, f12);
-        return C;
-    }
-    
-    return this;
-}
