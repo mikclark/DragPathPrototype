@@ -21,7 +21,8 @@ app.controller('PathCtrl', function PathCtrl($scope, $window, $interval) {
             velocity: 150
         };
         
-        var inputPoints = [{x:100,y:100},{x:100,y:200},{x:200,y:200},{x:200,y:100}];
+        var segment = 200;
+        var inputPoints = [{x:100,y:100},{x:100,y:100+segment},{x:100+segment,y:100+segment},{x:100+segment,y:100}];
         var hermite1 = new HermiteSplineChainWithCatmullRomTangents($scope.sprite.velocity, inputPoints, Math.PI);
         //var hermite2 = new HermiteSplineChainWithCatmullRomTangents($scope.sprite.velocity, inputPoints, Math.PI);
         $scope.test = {
