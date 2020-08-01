@@ -5,6 +5,7 @@
     <script src="path.controller.js"></script>
     <script src="ships.js"></script>
     <script src="geometry.js"></script>
+    <script src="splines.js"></script>
     
     <body ng-controller="PathCtrl" ng-init="initialize()">
         <svg id="spacecanvas"
@@ -22,6 +23,7 @@
             </polygon>
             
             <polyline ng-if="formattedPath" points="{{formattedPath || ''}}" class="flightPath"></polyline>
+            <polyline ng-if="smoothPath" points="{{smoothPath || ''}}" class="testPath1"></polyline>
             
             <polyline ng-if="test.inputPoints" points="{{formatPoints(test.inputPoints, 100, 100)}}" class="testPath1"></polyline>
             <polyline ng-if="test.outputPoints" points="{{formatPoints(test.outputPoints, 100, 100)}}" class="testPath2"></polyline>
