@@ -12,7 +12,7 @@
              class="space"
              ng-mousedown="isClickOnSprite($event)"
              ng-mousemove="drawing && drawPath($event)"
-             ng-mouseleave="drawing = false"
+             ng-mouseleave="drawing && beginFlightPath()"
              ng-mouseup="drawing && beginFlightPath()">
             
             <!--circle class="box" ng-style="sprite" ng-init="initialize()"></circle-->

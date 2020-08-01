@@ -10,13 +10,14 @@ app.controller('PathCtrl', function PathCtrl($scope, $window, $interval) {
     $scope.pathPoints = [];
     
     $scope.initialize = function() {
-        var radius = $window.innerWidth * 0.02;
+        var radius = 30; //$window.innerWidth * 0.02;
         $scope.sprite = {
             cx: $window.innerWidth/2,
             cy: $window.innerHeight/2,
             currentAngle: -0.5*Math.PI,
             fill: 'cyan',
             r: radius,
+            minimumTurnCosAngle: -0.8,
             shape: createXWing(),
             velocity: 150
         };
@@ -54,19 +55,20 @@ app.controller('PathCtrl', function PathCtrl($scope, $window, $interval) {
         var lastPoint = $scope.pathPoints[$scope.pathPoints.length - 1];
         $scope.formattedPath = $scope.formatPoints($scope.pathPoints);
         
-        // We need a better curvature check than this. Recommend: cos(q) = a.b / |a||b|,
-        // since the linear distances |a| and |b| must be computed at some point.
         var d = getDistance(event, lastPoint);
         
         if ( d && d >= $scope.sprite.r ) {
-            var dx = event.x - lastPoint.x;
-            var dy = event.y - lastPoint.y;
-            var currentPoint = {
-                x: event.x,
-                y: event.y,
-                time: d/$scope.sprite.velocity + lastPoint.time,
-                theta: Math.atan2(dy, dx)
-            };
+            // curvature check
+            if($scope.pathPoints.length > 2) {
+                var secondLastPoint = $scope.pathPoints[$scope.pathPoints.length - 2];
+                
+                var dotProduct = (event.x - lastPoint.x)*(lastPoint.x - secondLastPoint.x) + (event.y-lastPoint.y)*(lastPoint.y-secondLastPoint.y);
+                var cosAngle = dotProduct/d/getDistance(lastPoint,secondLastPoint);
+                if(cosAngle < $scope.sprite.minimumTurnCosAngle){
+                    // Curvature is too tight.
+                    return;
+                }
+            }
             
             // Update the "angle" of the previous* point using the midpoint-angle approximation
             if($scope.pathPoints.length > 2) {
@@ -77,7 +79,10 @@ app.controller('PathCtrl', function PathCtrl($scope, $window, $interval) {
             }
             
             // Now add the new point to pathPoints.
-            $scope.pathPoints.push(currentPoint);
+            $scope.pathPoints.push({
+                x: event.x,
+                y: event.y,
+            });
         }
     }
     
@@ -128,8 +133,11 @@ app.controller('PathCtrl', function PathCtrl($scope, $window, $interval) {
         
         var timer = new Date();
         console.log("pathPoints:\n" + JSON.stringify($scope.pathPoints,sortKeysReplacer,4));
-        var spline = HermiteSplineChainWithCatmullRomTangents($scope.sprite.velocity, $scope.pathPoints, $scope.sprite.currentAngle);
-        $scope.smoothedPathPoints = spline.wholeShape(2);
+        var splines = HermiteSplineChainWithCatmullRomTangents($scope.sprite.velocity, $scope.pathPoints, $scope.sprite.currentAngle);
+        console.log("splines:\n" + JSON.stringify(splines.splines,
+            ["function", "point1","point2","tangent1","tangent2","arcLength","x","y","time","theta","startTime","endTime"],
+            4));
+        $scope.smoothedPathPoints = splines.wholeShape(10);
         //$scope.smoothedPathPoints = $scope.pathPoints;
         $scope.smoothPath = $scope.formatPoints($scope.smoothedPathPoints);
         console.log("smoothedPathPoints:\n" + JSON.stringify($scope.smoothedPathPoints,sortKeysReplacer,4));

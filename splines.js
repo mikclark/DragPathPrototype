@@ -8,18 +8,19 @@ function HermiteSplineChainWithCatmullRomTangents(constantV, pathPoints, theta0)
     // two adject line segments, from (i-1) to (i) and from (i) to (i+1).
     // The tangent at the first point is given as theta0.
     // The tangent at the last point is assumed to be equivalent to the vector between the last two points.
+    var firstDistance = getDistance(pathPoints[0], pathPoints[1]);
     var tangent1 = {
-        x: this.V * Math.cos(theta0),
-        y: this.V * Math.sin(theta0)
+        x: firstDistance * Math.cos(theta0),
+        y: firstDistance * Math.sin(theta0)
     };
     for(var iPoint = 0; iPoint < pathPoints.length - 1; iPoint++) {
         var tangent2 = {};
         if(iPoint == pathPoints.length - 2) {
-            tangent2.x = pathPoints[iPoint+1].x - pathPoints[iPoint].x;
-            tangent2.y = pathPoints[iPoint+1].y - pathPoints[iPoint].y;
+            tangent2.x = (pathPoints[iPoint+1].x - pathPoints[iPoint].x);
+            tangent2.y = (pathPoints[iPoint+1].y - pathPoints[iPoint].y);
         } else {
-            tangent2.x = pathPoints[iPoint+2].x - pathPoints[iPoint].x;
-            tangent2.y = pathPoints[iPoint+2].y - pathPoints[iPoint].y;
+            tangent2.x = 0.5*(pathPoints[iPoint+2].x - pathPoints[iPoint].x);
+            tangent2.y = 0.5*(pathPoints[iPoint+2].y - pathPoints[iPoint].y);
         }
         
         var spline = new HermiteSpline(pathPoints[iPoint], pathPoints[iPoint+1], tangent1, tangent2);
@@ -61,9 +62,15 @@ function HermiteSplineChainWithCatmullRomTangents(constantV, pathPoints, theta0)
             function(s) {
                 for(var j = 1; j <= nPointsPerSegment; j++){
                     var thisPoint = s.function.evaluateAt(1.0*j/nPointsPerSegment);
-                    var lengthFraction = getDistance(lastPoint, thisPoint) / s.arcLength;
-                    thisPoint.time = s.startTime + lengthFraction * (s.endTime - s.startTime);
+                    var segmentTravelTime = getDistance(lastPoint, thisPoint) / this.V;
+                    thisPoint.time = lastPoint.time + segmentTravelTime;
                     wholeShapePoints.push(thisPoint);
+                    lastPoint = {
+                        x: thisPoint.x,
+                        y: thisPoint.y,
+                        time: thisPoint.time,
+                        theta: thisPoint.theta
+                    }
                 }
             }
         )
