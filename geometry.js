@@ -178,11 +178,8 @@ function HermiteSpline(point1, point2, tangent1, tangent2) {
     this.lengthMap = null;
     //console.log("HermiteSpline(" + JSON.stringify(this.point1) + ", " + JSON.stringify(this.point2) + ", " + JSON.stringify(this.tangent1) + ", " + JSON.stringify(this.tangent2) + ")");
     
-    this.evaluateAt = function(t, doNotComputeTheta, doNotUseMap){
+    this.evaluateAt = function(t, doNotComputeTheta){
         //console.log("HermiteSpline evaluateAt(" + t + ") : " + JSON.stringify(this.point1) + ", " + JSON.stringify(this.point2) + ", " + JSON.stringify(this.tangent1) + ", " + JSON.stringify(this.tangent2));
-        if(!doNotUseMap){
-            t = this.mapTByLength(t);
-        }
         var h00 = (1.0 + 2.0*t) * (1.0 - t) * (1.0 - t);
         var h10 = t * (1.0 - t) * (1.0 - t);
         var h01 = t * t * (3.0 - 2.0*t);
@@ -258,25 +255,6 @@ function HermiteSpline(point1, point2, tangent1, tangent2) {
         });
         this.lengthMap[this.lengthMap.length-1].fractionByArcLength = 1.0; // Correct for machine-epsilon
         return totalArcLength;
-    }
-    
-    this.mapTByLength = function(fractionLength){
-        if(fractionLength < 0.0 || fractionLength > 1.0){
-            throw ("HermiteSpline.mapT received an invalid fractionLength: " + fractionLength);
-        }
-        
-        var middleIndex = Math.floor(this.lengthMap.length/2);
-        var startSearchIndex = (fractionLength >= this.lengthMap[middleIndex].fractionByArcLength) ? middleIndex : 0;
-        for(var i = startSearchIndex; i < this.lengthMap.length - 1; i++){
-            var f1 = this.lengthMap[i].fractionByArcLength;
-            var t1 = this.lengthMap[i].fractionByTCoordinate;
-            var f2 = this.lengthMap[i+1].fractionByArcLength;
-            var t2 = this.lengthMap[i+1].fractionByTCoordinate;
-            if(f1 <= fractionLength && fractionLength <= f2){
-                return t1 + (t2 - t1)/(f2 - f1) * (fractionLength - f1);
-            }
-        }
-        return undefined;
     }
     
     return this;
