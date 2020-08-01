@@ -108,20 +108,14 @@ function HermiteSplineChainWithCatmullRomTangents(constantV, pathPoints, theta0)
         y: this.V * Math.sin(theta0)
     };
     for(var iPoint = 0; iPoint < pathPoints.length - 1; iPoint++) {
-        var d2x;
-        var d2y;
+        var tangent2 = {};
         if(iPoint == pathPoints.length - 2) {
-            d2x = pathPoints[iPoint+1].x - pathPoints[iPoint].x;
-            d2y = pathPoints[iPoint+1].y - pathPoints[iPoint].y;
+            tangent2.x = pathPoints[iPoint+1].x - pathPoints[iPoint].x;
+            tangent2.y = pathPoints[iPoint+1].y - pathPoints[iPoint].y;
         } else {
-            d2x = pathPoints[iPoint+2].x - pathPoints[iPoint].x;
-            d2y = pathPoints[iPoint+2].y - pathPoints[iPoint].y;
+            tangent2.x = pathPoints[iPoint+2].x - pathPoints[iPoint].x;
+            tangent2.y = pathPoints[iPoint+2].y - pathPoints[iPoint].y;
         }
-        var d = this.V; //Math.sqrt(d2x*d2x+d2y*d2y);
-        var tangent2 = {
-            x: this.V * d2x/d,
-            y: this.V * d2y/d
-        };
         
         var spline = new HermiteSpline(pathPoints[iPoint], pathPoints[iPoint+1], tangent1, tangent2);
         var arcLength = spline.arcLengthApproximation();
