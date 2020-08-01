@@ -135,20 +135,23 @@ function HermiteSplineChainWithCatmullRomTangents(constantV, pathPoints, theta0)
         currentTime += arcLength/this.V;
         tangent1 = tangent2;
     }
+    this.endTime = currentTime;
     console.log("splines.length = " + this.splines.length);
     console.log("Start times = " + JSON.stringify(this.splines.map(function(s){return s.startTime})));
     
     // Now "this.splines" contains the entire path in terms of splines.
     
     this.evaluateAt = function(time) {
-        var currentSpline = this.splines.find(
-            function(s){
+        var splineIndex = this.splines.findIndex(
+            function(s, index){
                 return (s.startTime <= time) && (s.endTime >= time);
             }
         );
-        
-        var t = (time = currentSpline.startTime)/(currentSpline.endTime = currentSpline.startTime);
-        return currentSpline.function.evaluateAt(t);
+        var currentSpline = this.splines[splineIndex];
+        var t = (time - currentSpline.startTime)/(currentSpline.endTime - currentSpline.startTime);
+        var result = currentSpline.function.evaluateAt(t);
+        console.log("t=" + t + " splineIndex=" + splineIndex + " state=" + JSON.stringify(result));
+        return result;
     }
     
     this.wholeShape = function(nPointsPerSegment){
@@ -171,10 +174,15 @@ function HermiteSpline(point1, point2, tangent1, tangent2) {
     this.point2 = point2;
     this.tangent1 = tangent1;
     this.tangent2 = tangent2;
+    this.arcLength = null;
+    this.lengthMap = null;
     //console.log("HermiteSpline(" + JSON.stringify(this.point1) + ", " + JSON.stringify(this.point2) + ", " + JSON.stringify(this.tangent1) + ", " + JSON.stringify(this.tangent2) + ")");
     
-    this.evaluateAt = function(t, doNotComputeTheta){
-        console.log("HermiteSpline evaluateAt(" + t + ") : " + JSON.stringify(this.point1) + ", " + JSON.stringify(this.point2) + ", " + JSON.stringify(this.tangent1) + ", " + JSON.stringify(this.tangent2));
+    this.evaluateAt = function(t, doNotComputeTheta, doNotUseMap){
+        //console.log("HermiteSpline evaluateAt(" + t + ") : " + JSON.stringify(this.point1) + ", " + JSON.stringify(this.point2) + ", " + JSON.stringify(this.tangent1) + ", " + JSON.stringify(this.tangent2));
+        if(!doNotUseMap){
+            t = this.mapTByLength(t);
+        }
         var h00 = (1.0 + 2.0*t) * (1.0 - t) * (1.0 - t);
         var h10 = t * (1.0 - t) * (1.0 - t);
         var h01 = t * t * (3.0 - 2.0*t);
@@ -203,28 +211,72 @@ function HermiteSpline(point1, point2, tangent1, tangent2) {
     }
     
     this.arcLengthApproximation = function(){
+        if (this.arcLength !== null){
+            return this.arcLength;
+        }
         var nSegments = 32;
         var dt = 1.0/nSegments;
         var points = [];
         for(var i = 0; i <= nSegments; i++){
-            points.push(this.evaluateAt(dt*i));
+            points.push(this.evaluateAt(dt*i, true, true));
         }
         
+        this.lengthMap = [{
+            fractionByTCoordinate: 0.0,
+            fractionByArcLength: 0.0
+        }];
         var lengthAllPoints = 0.0;
-        var lengthHalfPoints = 0.0;
+        //var lengthHalfPoints = 0.0;
         for(var j = 1; j <= nSegments; j++){
-            lengthAllPoints += getDistance(points[j], points[j-1]);
-            if(j % 2 == 0){
-                lengthHalfPoints += getDistance(points[j], points[j-2]);
+            var d = getDistance(points[j], points[j-1]);
+            
+            // Add to the lengthMap.
+            var newMapPoint = {
+                fractionByTCoordinate: 1.0*j/nSegments,
+                fractionByArcLength: d
             }
+            this.lengthMap.push(newMapPoint);
+            
+            // Compute the total length so far.
+            lengthAllPoints += d;
+            //if(j % 2 == 0){
+            //    lengthHalfPoints += getDistance(points[j], points[j-2]);
+            //}
         }
         
         // Take two approximate answers, one sampled at half the Reimann-interval as the other, and
         // extrapolate to the case of having a Reimann-interval approaching 0. Extrapolate assuming
         // that the error of the approximation increases with the Reimann-interval squared.
-        var result = lengthAllPoints + (lengthAllPoints - lengthHalfPoints)/(1.0 - 0.25)*(0.25)
-        console.log(lengthHalfPoints + " -> " + lengthAllPoints + " -> " + result);
-        return result;
+        var totalArcLength = lengthAllPoints ;//+ (lengthAllPoints - lengthHalfPoints)/(1.0 - 0.25)*(0.25)
+
+        this.arcLength = totalArcLength;
+        var cumulativeD = 0.0;
+        this.lengthMap.forEach(function(mapPoint){
+            var thisD = mapPoint.fractionByArcLength;
+            cumulativeD += thisD/totalArcLength;
+            mapPoint.fractionByArcLength = cumulativeD;
+        });
+        this.lengthMap[this.lengthMap.length-1].fractionByArcLength = 1.0; // Correct for machine-epsilon
+        return totalArcLength;
+    }
+    
+    this.mapTByLength = function(fractionLength){
+        if(fractionLength < 0.0 || fractionLength > 1.0){
+            throw ("HermiteSpline.mapT received an invalid fractionLength: " + fractionLength);
+        }
+        
+        var middleIndex = Math.floor(this.lengthMap.length/2);
+        var startSearchIndex = (fractionLength >= this.lengthMap[middleIndex].fractionByArcLength) ? middleIndex : 0;
+        for(var i = startSearchIndex; i < this.lengthMap.length - 1; i++){
+            var f1 = this.lengthMap[i].fractionByArcLength;
+            var t1 = this.lengthMap[i].fractionByTCoordinate;
+            var f2 = this.lengthMap[i+1].fractionByArcLength;
+            var t2 = this.lengthMap[i+1].fractionByTCoordinate;
+            if(f1 <= fractionLength && fractionLength <= f2){
+                return t1 + (t2 - t1)/(f2 - f1) * (fractionLength - f1);
+            }
+        }
+        return undefined;
     }
     
     return this;
