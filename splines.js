@@ -103,17 +103,18 @@ function HermiteSplineChainWithCatmullRomTangents(constantV, pathPoints, theta0)
     }
     
     this.wholeShape = function(nPointsPerSegment){
-        var wholeShapePoints = [this.splines[0].function.evaluateAt(0, true, true)];
+        var wholeShapePoints = [this.splines[0].function.evaluateAt(0, true, false)];
         this.splines.forEach(
             function(s) {
                 for(var j = 1; j <= nPointsPerSegment; j++){
-                    wholeShapePoints.push(s.function.evaluateAt(1.0*j/nPointsPerSegment, true, true));
+                    wholeShapePoints.push(s.function.evaluateAt(1.0*j/nPointsPerSegment, true, false));
                 }
             }
         )
         return wholeShapePoints;
     }
     
+    return this;
 }
 
 function HermiteSpline(point1, point2, tangent1, tangent2) {

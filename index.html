@@ -24,25 +24,31 @@
             <polyline points="{{formattedPath || '0,0'}}" class="originalFlightPath"></polyline>
             <polyline points="{{smoothPath || '0,0'}}" class="smoothFlightPath"></polyline>
             
-            <polyline points="{{formatPoints(test.outputPoints)}}" class="smoothFlightPath"></polyline>
-            
+            <polyline points="{{formatPoints(test.testPath) || '0,0'}}" class="originalFlightPath"></polyline>
+            <polyline points="{{formatPoints(test.smoothedTestPath) || '0,0'}}" class="smoothFlightPath"></polyline>
+            <polyline points="{{formatPoints(test.smoothPiece1) || '0,0'}}" class="otherFlightPath"></polyline>
+            <polyline points="{{formatPoints(test.smoothPiece2) || '0,0'}}" class="otherFlightPath"></polyline>
+
+            <polyline points="{{formatPoints(test.outputPoints) || '0,0'}}" class="smoothFlightPath"></polyline>
             
         </svg>
         <div>
-            <div ng-init="test = {point1:{x:100,y:100}, point2:{x:300,y:100}, theta1:60, theta2:0}">
+            <div>
                 <b>Point1</b>
-                <label>x<input style="number" ng-model="test.point1.x"></label>
-                <label>y<input style="number" ng-model="test.point1.y"></label>
-                <label>theta(o)<input style="number" ng-model="test.theta1"></label>
+                <label>x<input type="number" ng-model="test.point1.x"></label>
+                <label>y<input type="number" ng-model="test.point1.y"></label>
+                <label>theta(o)<input type="number" ng-model="test.theta1"></label>
             </div>
             <div>
                 <b>Point2</b>
-                <label>x<input style="number" ng-model="test.point2.x"></label>
-                <label>y<input style="number" ng-model="test.point2.y"></label>
-                <label>theta(o)<input style="number" ng-model="test.theta2"></label>
+                <label>x<input type="number" ng-model="test.point2.x"></label>
+                <label>y<input type="number" ng-model="test.point2.y"></label>
+                <label>theta(o)<input type="number" ng-model="test.theta2"></label>
             </div>
             <button ng-click="getOutput(test.point1, test.point2, test.theta1, test.theta2)">Calculate</button>
             
+            <pre>(inputPoints) = {{test.testPath | json}}</pre>
+            <pre>path = {{test.smoothedPathPoints | json}}</pre>
             <div>(outputPoints) = {{formatPoints(test.outputPoints)}}</div>
             <pre>outputPoints = {{test.outputPoints | json}}</pre>
         </div>

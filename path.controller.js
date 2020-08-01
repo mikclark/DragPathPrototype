@@ -10,7 +10,7 @@ app.controller('PathCtrl', function PathCtrl($scope, $window, $interval) {
     $scope.pathPoints = [];
     
     $scope.initialize = function() {
-        var radius = $window.innerWidth * 0.02;
+        var radius = 30; //$window.innerWidth * 0.02;
         $scope.sprite = {
             cx: $window.innerWidth/2,
             cy: $window.innerHeight/2,
@@ -21,11 +21,35 @@ app.controller('PathCtrl', function PathCtrl($scope, $window, $interval) {
             velocity: 150
         };
         
-        var inputPoints = [1,2,3,4,5,6,7,8,9,10,11,12].map(function(){return {x:100+Math.random()*400,y:100+Math.random()*400};});
-        var hermite = new HermiteSplineChainWithCatmullRomTangents($scope.sprite.velocity, inputPoints, 0.0);
-        $scope.test = {};
+        var points = [
+            {
+                x: 100,
+                y: 100,
+                theta: 0.25*Math.PI
+            },
+            {
+                x: 300,
+                y: 300,
+                theta: 0
+            },
+            {
+                x: 500,
+                y: 100,
+                theta: -0.25*Math.PI
+            }
+        ];
+        $scope.test = {
+            point1:{x:540,y:100},
+            point2:{x:560,y:180},
+            theta1:0,
+            theta2:0,
+            testPath: points,
+            smoothedTestPath: solvePathWithPointsAndThetas(points, 15, 30),
+            smoothPiece1: solvePathTwoPoints(30, points[0], points[1], points[0].theta, points[1].theta),
+            smoothPiece2: solvePathTwoPoints(30, points[1], points[2], points[1].theta, points[2].theta)
+        };
         $scope.getOutput = function(ip1,ip2,ith1,ith2){
-            $scope.test.outputPoints = solvePathTwoPoints(30, ip1,ip2,ith1*Math.PI/180.0,ith2*Math.PI/180.0);
+            $scope.test.outputPoints = solvePathTwoPoints(15, ip1,ip2,ith1*Math.PI/180.0,ith2*Math.PI/180.0);
         }
     };
     
@@ -55,7 +79,7 @@ app.controller('PathCtrl', function PathCtrl($scope, $window, $interval) {
         // since the linear distances |a| and |b| must be computed at some point.
         var d = getDistance(event, lastPoint);
         
-        if ( d && d >= $scope.sprite.r ) {
+        if ( d && d > 2.1*$scope.sprite.r ) {
             var dx = event.x - lastPoint.x;
             var dy = event.y - lastPoint.y;
             var currentPoint = {
@@ -123,12 +147,13 @@ app.controller('PathCtrl', function PathCtrl($scope, $window, $interval) {
         $scope.flightStartTime = new Date();
         $scope.formattedPath = $scope.formatPoints($scope.pathPoints);
         var timer = new Date();
-        $scope.splineChain = new HermiteSplineChainWithCatmullRomTangents($scope.sprite.velocity, $scope.pathPoints, $scope.sprite.currentAngle);
-        $scope.smoothPath = $scope.formatPoints($scope.splineChain.wholeShape(20));
+        $scope.smoothedPathPoints = initialGuessPath($scope.pathPoints, $scope.sprite.currentAngle, $scope.sprite.velocity, $scope.sprite.r );
+        $scope.smoothPath = $scope.formatPoints($scope.smoothedPathPoints.path);
         console.log("\nBUILD TIME: \n" + 0.001*(new Date() - timer) + "\n");
+        var nthSegment = 0;
         
         function calculatePosition(flightTime){
-            if (flightTime > $scope.splineChain.endTime){
+            if (flightTime > $scope.smoothedPathPoints.endTime){
                 // End of the path. Terminate flight loop.
                 $interval.cancel(inFlight);
                 inFlight = undefined;
@@ -136,10 +161,11 @@ app.controller('PathCtrl', function PathCtrl($scope, $window, $interval) {
                 return;
             }
             
-            var currentState = $scope.splineChain.evaluateAt(flightTime);
+            var currentState = evaluatePathAtTime($scope.smoothedPathPoints.path, flightTime, nthSegment);
+            nthSegment = currentState.index;
             $scope.sprite.cx = currentState.x;
             $scope.sprite.cy = currentState.y;
-            //$scope.sprite.currentAngle = currentState.theta;
+            $scope.sprite.currentAngle = currentState.theta;
         }
         
         /*var inFlight = $interval(function(){

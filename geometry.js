@@ -13,9 +13,18 @@ function getDistance(r1, r2) {
 }
 
 
-function interpolateAngle(theta1, theta2, fraction){
+function interpolateAngle(theta1, theta2, fraction, towardPositive){
     var dtheta = theta2 - theta1;
-    dtheta -= Math.round(dtheta/(2.0*Math.PI))*2.0*Math.PI;
+    if(towardPositive===null || towardPositive===undefined){
+        // If the direction is not known, travel the "shorter way" around the circle
+        dtheta -= Math.round(dtheta/(2.0*Math.PI))*2.0*Math.PI;
+    } else if (towardPositive===true){
+        // Travel around the circle in the direction of positive theta
+        dtheta -= Math.floor(dtheta/(2.0*Math.PI))*2.0*Math.PI;
+    } else {
+        // Travel around the circle in the direction of negative theta
+        dtheta -= Math.ceil(dtheta/(2.0*Math.PI))*2.0*Math.PI;
+    }
     return theta1 + fraction * dtheta;
 }
 
@@ -53,15 +62,121 @@ function rotateShape(shape, theta){
 }
 
 
+function evaluateStateFromPathAtTime(pathPoints, time, startAtNthSegment) {
+    if(!pathPoints){
+        return null;
+    }
+    
+    // The purpose of this function is to take a sequence of (time,point) pairs and determine which
+    // two points we are in between at time="time". Short circuit an error condition by checking if
+    // "time" is between the first and last points of the array.
+    if(pathPoints[pathPoints.length-1].time < time || pathPoints[0].time > time){
+        return null;
+    }
+    
+    // To speed things up, start looking where the caller tells us. If the caller hasn't
+    // provided a place to start, then search the whole array.
+    startAtNthSegment = startAtNthSegment || 0;
+    if(pathPoints[startAtNthSegment].time > time){
+        startAtNthSegment = 0;
+    }
+    
+    for(var i = startAtNthSegment; i < pathPoints.length - 1; i++){
+        if(pathPoints[i+1].time < time) {
+            continue;
+        }
+        // Now we know that pathPoints[i].time <= time <= pathPoints[i+1].time
+        var tFraction = (time - pathPoints[i].time)/(pathPoints[i+1].time - pathPoints[i].time);
+        return {
+            index: i,
+            x: tFraction * pathPoints[i+1].x + (1.0 - tFraction) * pathPoints[i].x,
+            y: tFraction * pathPoints[i+1].y + (1.0 - tFraction) * pathPoints[i].y,
+            theta: interpolateAngle(pathPoints[i].theta, pathPoints[i+1].theta, tFraction)
+        }
+    }
+}
+
+
+function initialGuessPath(points, theta0, speed, radiusOfTurn){
+    points[0].theta = theta0;
+    for(var i = 1; i < points.length - 1; i++){
+        points[i].theta = Math.atan2(  points[i+1].y - points[i-1].y, points[i+1].x - points[i-1].x  );
+    }
+    points[points.length-1].theta = Math.atan2(
+        points[points.length-1].y - points[points.length-2].y,
+        points[points.length-1].x - points[points.length-2].x
+    );
+    return {
+        path: solvePathWithPointsAndThetas(points, speed, radiusOfTurn),
+        points: points
+    }
+}
+
+
+
+function solvePathWithPointsAndThetas(points, speed, radiusOfTurn){
+    var algorithmStartTime = (new Date()).getTime();
+    // Assume that points is a vector of objects and each object has properties .x, .y, and .theta
+    var previousTime = 0.0;
+    var path = [{
+        x: points[0].x,
+        y: points[0].y,
+        theta: points[0],
+        distance: 0.0,
+        time: previousTime
+    }]
+    
+    for(var i = 1; i < points.length; i++){
+        var p1 = {
+            x: points[i-1].x,
+            y: points[i-1].y
+        };
+        var p2 = {
+            x: points[i].x,
+            y: points[i].y
+        };
+        var newPoints = solvePathTwoPoints(radiusOfTurn, p1, p2, points[i-1].theta, points[i].theta);
+        for(var j = 1; j < newPoints.length; j++){
+            var distance = getDistance(newPoints[i], newPoints[i-1]);
+            var newTime = previousTime + distance/speed;
+            path.push({
+                x: newPoints[j].x,
+                y: newPoints[j].y,
+                theta: newPoints[j].theta,
+                distance: distance,
+                time: newTime
+            });
+            previousTime = newTime;
+        }
+    }
+    console.log("Algorithm time (ms) = " + ((new Date()).getTime() - algorithmStartTime)/1000.0 );
+    return path;
+}
+
+
 
 
 
 function solvePathTwoPoints(radiusOfTurn, point1, point2, theta1, theta2){
     var tangentP2P = {
-        x: point2.x - point2.x,
+        x: point2.x - point1.x,
         y: point2.y - point1.y
     };
+    console.log("******************************************");
     var thetaP2P = Math.atan2(tangentP2P.y, tangentP2P.x);
+    var distanceP2P = getDistance(point1, point2);
+    console.log(JSON.stringify({
+        "point1": point1,
+        "point2": point2,
+        "thetaP2P": thetaP2P,
+        "distanceP2P": distanceP2P,
+        "radiusOfTurn": radiusOfTurn
+    },null,4));
+    if(distanceP2P < 2.0*radiusOfTurn){
+        throw "Too close together";
+    }
+    //theta1 -= Math.round(theta1/(2.0*Math.PI))*(2.0*Math.PI);
+    //theta2 -= Math.round(theta2/(2.0*Math.PI))*(2.0*Math.PI);
     
     // Super special case: all lines colinear.
     if((thetaP2P == theta1) && (thetaP2P == theta2)){
@@ -111,6 +226,10 @@ function solvePathTwoPoints(radiusOfTurn, point1, point2, theta1, theta2){
         "point2": point2,
         "tangent1": tangent1,
         "tangent2":tangent2,
+        "tangentP2P": {
+            x: tangentP2P.x/distanceP2P,
+            y: tangentP2P.y/distanceP2P
+        },
         "normal1": normal1,
         "normal2": normal2,
         "centers": {
@@ -199,7 +318,7 @@ function solvePathTwoPoints(radiusOfTurn, point1, point2, theta1, theta2){
             x: point1.x + tangent1.x,
             y: point1.y + tangent1.y,
         };
-        if(getDistance(center2A, ghostPoint1) < getDistance(center2B, ghostPoint1)) {
+        if(getDistance(center2A, ghostPoint1) > getDistance(center2B, ghostPoint1)) {
             circle2 = {
                 x: center2A.x,
                 y: center2A.y,
@@ -221,21 +340,24 @@ function solvePathTwoPoints(radiusOfTurn, point1, point2, theta1, theta2){
     
     // Common tangents of two circles.
     var deltaTheta;
-    var denominator = radiusOfTurn*radiusOfTurn + (point1.x-point2.x)*(point1.x-point2.x) + (point1.y-point2.y)*(point1.y-point2.y);
     if(circle1.isNuPositive && circle2.isNuPositive){
+        console.log("   Two counter-clockwise circles");
         // Two counter-clockwise circles
         circle1.phiEnd = thetaP2P - 0.5*Math.PI;
         circle2.phiStart = thetaP2P - 0.5*Math.PI;
     } else if (circle1.isNuPositive) {
         // Circle1 counter-clockwise. Circle2 clockwise.
-        deltaTheta = Math.acos(radiusOfTurn/Math.sqrt(denominator));
+        deltaTheta = Math.acos(2.0*radiusOfTurn/distanceP2P);
+        console.log("   Circle1 counter-clockwise. Circle2 clockwise. deltaTheta = " + deltaTheta);
         circle1.phiEnd = thetaP2P - deltaTheta;
         circle2.phiStart = thetaP2P - Math.PI - deltaTheta;
     } else if (circle2.isNuPositive) {
-        deltaTheta = Math.acos(radiusOfTurn/Math.sqrt(denominator));
+        deltaTheta = Math.acos(2.0*radiusOfTurn/distanceP2P);
+        console.log("   Circle1 clockwise. Circle2 counter-clockwise. deltaTheta = " + deltaTheta);
         circle1.phiEnd = thetaP2P + deltaTheta;
         circle2.phiStart = thetaP2P + Math.PI + deltaTheta;
     } else {
+        console.log("   Two clockwise circles");
         circle1.phiEnd = thetaP2P + 0.5*Math.PI;
         circle2.phiStart = thetaP2P + 0.5*Math.PI;
     }
@@ -244,18 +366,20 @@ function solvePathTwoPoints(radiusOfTurn, point1, point2, theta1, theta2){
     
     
     // Construct points
-    var newPoints = [];
-    deltaTheta = Math.PI / 32.0;
-    for(var i1 = 0; i1 <= 32; i1++){
-        var iPhi1 = interpolateAngle(circle1.phiStart, circle1.phiEnd, 0.03125*i1);
+    var newPoints = [];    
+    var nPointsInCircle1 = 16;
+    var nPointsInCircle2 = 16;
+    deltaTheta = Math.PI / nPointsInCircle1;
+    for(var i1 = 0; i1 <= nPointsInCircle1; i1++){
+        var iPhi1 = interpolateAngle(circle1.phiStart, circle1.phiEnd, 1.0*i1/nPointsInCircle1, circle1.isNuPositive);
         newPoints.push({
             x: circle1.x + radiusOfTurn * Math.cos(iPhi1),
             y: circle1.y + radiusOfTurn * Math.sin(iPhi1),
             theta: iPhi1 + (circle1.isNuPositive ? 0.5 : -0.5) * Math.PI
         });
     }
-    for(var i2 = 0; i2 <= 32; i2++){
-        var iPhi2 = interpolateAngle(circle2.phiStart, circle2.phiEnd, 0.03125*i2);
+    for(var i2 = 0; i2 <= nPointsInCircle2; i2++){
+        var iPhi2 = interpolateAngle(circle2.phiStart, circle2.phiEnd, 1.0*i2/nPointsInCircle2, circle2.isNuPositive);
         newPoints.push({
             x: circle2.x + radiusOfTurn * Math.cos(iPhi2),
             y: circle2.y + radiusOfTurn * Math.sin(iPhi2),
