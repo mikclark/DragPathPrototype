@@ -86,6 +86,19 @@ function evaluatePathAtTime(pathPoints, time, startAtNthSegment) {
     }
 }
 
+function getTotalCurvatureOfPoints(points){
+    // Assume that each point has .x, .y, and .time
+    var totalCurvature = 0.0;
+    for(var i = 2; i < points.length; i++){
+        var dt2 = (points[i].time - points[i-2].time)*(points[i].time - points[i-2].time);
+        var d2x = (points[i].x - 2.0*points[i-1].x + points[i-2].x)/(0.25*dt2);
+        var d2y = (points[i].y - 2.0*points[i-1].y + points[i-2].y)/(0.25*dt2);
+        var iCurvature = d2x*d2x + d2y*d2y;
+        totalCurvature += iCurvature;
+    }
+    return totalCurvature;
+}
+
 
 function addSmoothPointsToPath(pathPoints, theta0){
     // Cannot use Catmull-Rom on less than 4 points.

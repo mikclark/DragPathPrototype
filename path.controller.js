@@ -10,14 +10,16 @@ app.controller('PathCtrl', function PathCtrl($scope, $window, $interval) {
     $scope.pathPoints = [];
     
     $scope.initialize = function() {
-        var radius = 30; //$window.innerWidth * 0.02;
+        var radius = 60; //$window.innerWidth * 0.02;
+        var maximumTurnAngle = 0.5*Math.PI;
         $scope.sprite = {
             cx: $window.innerWidth/2,
             cy: $window.innerHeight/2,
             currentAngle: -0.5*Math.PI,
             fill: 'cyan',
             r: radius,
-            minimumTurnCosAngle: -0.8,
+            maximumTurnAngle: maximumTurnAngle,
+            maximumTurnCosAngle: Math.cos(maximumTurnAngle),
             shape: createXWing(),
             velocity: 150
         };
@@ -31,6 +33,14 @@ app.controller('PathCtrl', function PathCtrl($scope, $window, $interval) {
             outputPoints: hermite1.wholeShape(20),
             //outputPoints2: hermite2.wholeShape(20)
         };
+        
+        $scope.numerical = {
+            tests: [
+                [0.0, goldenRatioMinimization(function(x){return x*x;}, -1.0, 1.0)],
+                [-1.57, goldenRatioMinimization(function(x){return Math.cos(2.0*x);}, 0.0, 3.0)],
+                [1.0, goldenRatioMinimization(function(x){return x*x*x - 3*x + 1.0;}, 0.0, 3.0)]
+            ]
+        }
     };
     
     $scope.isClickOnSprite = function(event){
@@ -64,24 +74,22 @@ app.controller('PathCtrl', function PathCtrl($scope, $window, $interval) {
                 
                 var dotProduct = (event.x - lastPoint.x)*(lastPoint.x - secondLastPoint.x) + (event.y-lastPoint.y)*(lastPoint.y-secondLastPoint.y);
                 var cosAngle = dotProduct/d/getDistance(lastPoint,secondLastPoint);
-                if(cosAngle < $scope.sprite.minimumTurnCosAngle){
+                if(cosAngle < $scope.sprite.maximumTurnCosAngle){
                     // Curvature is too tight.
                     return;
                 }
+            } else {
+                var firstPathAngle = Math.atan2(event.y - lastPoint.y, event.x - lastPoint.x);
+                if ( Math.abs(firstPathAngle - $scope.sprite.currentAngle) > $scope.sprite.maximumTurnAngle ) {
+                    return;
+                }
             }
-            
-            // Update the "angle" of the previous* point using the midpoint-angle approximation
-            if($scope.pathPoints.length > 2) {
-                var secondLastPoint = $scope.pathPoints[$scope.pathPoints.length - 2];
-                var d2x = event.x - secondLastPoint.x;
-                var d2y = event.y - secondLastPoint.y;
-                lastPoint.angle = Math.atan2(d2y, d2x);
-            }
-            
+                        
             // Now add the new point to pathPoints.
             $scope.pathPoints.push({
                 x: event.x,
                 y: event.y,
+                distance: d
             });
         }
     }
@@ -128,7 +136,6 @@ app.controller('PathCtrl', function PathCtrl($scope, $window, $interval) {
         // which the sprite is supposed to reach each point. We then interrogate
         // the current time and interpolate.
         $scope.drawing = false;
-        $scope.flightStartTime = new Date();
         $scope.formattedPath = $scope.formatPoints($scope.pathPoints);
         
         var timer = new Date();
@@ -137,12 +144,14 @@ app.controller('PathCtrl', function PathCtrl($scope, $window, $interval) {
         console.log("splines:\n" + JSON.stringify(splines.splines,
             ["function", "point1","point2","tangent1","tangent2","arcLength","x","y","time","theta","startTime","endTime"],
             4));
-        $scope.smoothedPathPoints = splines.wholeShape(10);
+        $scope.smoothedPathPoints = splines.wholeShape();
         //$scope.smoothedPathPoints = $scope.pathPoints;
         $scope.smoothPath = $scope.formatPoints($scope.smoothedPathPoints);
         console.log("smoothedPathPoints:\n" + JSON.stringify($scope.smoothedPathPoints,sortKeysReplacer,4));
         console.log("\nBUILD TIME: \n" + 0.001*(new Date() - timer) + "\n");
         var nthSegment = 0;
+        $scope.flightStartTime = new Date();
+        
         
         function calculatePosition(flightTime){
             if (flightTime > $scope.smoothedPathPoints[$scope.smoothedPathPoints.length-1].time){

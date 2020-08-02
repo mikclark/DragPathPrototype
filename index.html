@@ -6,6 +6,7 @@
     <script src="ships.js"></script>
     <script src="geometry.js"></script>
     <script src="splines.js"></script>
+    <script src="numerical.js"></script>
     
     <body ng-controller="PathCtrl" ng-init="initialize()">
         <svg id="spacecanvas"
@@ -31,6 +32,9 @@
             
             
         </svg>
+        <div>
+            <pre>{{numerical.tests | json}}</pre>
+        </div>
         <div ng-if="true">
             <div>inputPoints = {{test.inputPoints}}</div>
             <div>outputPoints = {{formatPoints(test.outputPoints)}}</div>

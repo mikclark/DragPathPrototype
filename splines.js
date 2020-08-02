@@ -1,29 +1,89 @@
 function HermiteSplineChainWithCatmullRomTangents(constantV, pathPoints, theta0) {
+    
+    
+    var thetas = constructInitialGuessForThetas(pathPoints, theta0);
+    console.log("thetas = " + JSON.stringify(thetas,null,4));
+    
+    var splineChain = HermiteSplineChainFromPointsAndTangents(constantV, pathPoints, thetas);
+    
+    /*for(var iteration = 0; iteration < 5; iteration++) {
+        splineChain = HermiteSplineChainFromPointsAndTangents(constantV, pathPoints, thetas);
+        var kappa0 = getTotalCurvatureOfPoints(splineChain.wholeShape());
+        
+        var delta = 0.01;
+        var gradientKappa = []
+        for(var iTheta = 1; iTheta < thetas.length; iTheta++){
+            thetas[iTheta] += delta;
+            var perturbedChain = HermiteSplineChainFromPointsAndTangents(constantV, pathPoints, thetas);
+            gradientKappa.push( getTotalCurvatureOfPoints(perturbedChain.wholeShape()) - kappa0);
+            thetas[iTheta] -= delta;
+        }
+        
+        
+    }*/
+    
+    return splineChain
+}
+
+function constructInitialGuessForThetas(pathPoints, theta0) {
+    var thetas = [theta0];
+    for(var iPoint = 1; iPoint < pathPoints.length - 1; iPoint++)
+    {
+        thetas.push(
+            Math.atan2(
+                pathPoints[iPoint+1].y - pathPoints[iPoint-1].y,
+                pathPoints[iPoint+1].x - pathPoints[iPoint-1].x
+            )
+        );
+    }
+    thetas.push(
+        Math.atan2(
+            pathPoints[pathPoints.length-1].y - pathPoints[pathPoints.length-2].y,
+            pathPoints[pathPoints.length-1].x - pathPoints[pathPoints.length-2].x
+        )
+    );
+    return thetas;
+}
+    
+function HermiteSplineChainFromPointsAndTangents(constantV, pathPoints, thetas) {
     this.V = constantV;
     this.splines = [];
+    this.wholeShapePoints = null;
     
     var currentTime = 0.0;
+    var theta0 = thetas[0];
     
     // Assume that the tangent at point (i) is given by averaging the slopes of the
     // two adject line segments, from (i-1) to (i) and from (i) to (i+1).
     // The tangent at the first point is given as theta0.
     // The tangent at the last point is assumed to be equivalent to the vector between the last two points.
-    var firstDistance = getDistance(pathPoints[0], pathPoints[1]);
+    var firstDistance = pathPoints[1].distance || getDistance(pathPoints[0], pathPoints[1]);
     var tangent1 = {
         x: firstDistance * Math.cos(theta0),
         y: firstDistance * Math.sin(theta0)
     };
-    for(var iPoint = 0; iPoint < pathPoints.length - 1; iPoint++) {
+    for(var iPoint = 1; iPoint < pathPoints.length; iPoint++) {
         var tangent2 = {};
-        if(iPoint == pathPoints.length - 2) {
-            tangent2.x = (pathPoints[iPoint+1].x - pathPoints[iPoint].x);
-            tangent2.y = (pathPoints[iPoint+1].y - pathPoints[iPoint].y);
+        if(iPoint == pathPoints.length - 1) {
+            tangent2 = {
+                x: pathPoints[iPoint].distance * Math.cos(thetas[iPoint]),
+                y: pathPoints[iPoint].distance * Math.sin(thetas[iPoint])
+            }
         } else {
-            tangent2.x = 0.5*(pathPoints[iPoint+2].x - pathPoints[iPoint].x);
-            tangent2.y = 0.5*(pathPoints[iPoint+2].y - pathPoints[iPoint].y);
+            /*var d2x = 0.5*(pathPoints[iPoint+1].x - pathPoints[iPoint-1].x);
+            var d2y = 0.5*(pathPoints[iPoint+1].y - pathPoints[iPoint-1].y);
+            tangent2 = {
+                x: d2x,
+                y: d2y
+            }*/
+            var avgd = 0.5*(pathPoints[iPoint].distance + pathPoints[iPoint+1].distance);
+            tangent2 = {
+                x: avgd * Math.cos(thetas[iPoint]),
+                y: avgd * Math.sin(thetas[iPoint])
+            }
         }
         
-        var spline = new HermiteSpline(pathPoints[iPoint], pathPoints[iPoint+1], tangent1, tangent2);
+        var spline = new HermiteSpline(pathPoints[iPoint-1], pathPoints[iPoint], tangent1, tangent2);
         var arcLength = spline.arcLengthApproximation();
         this.splines.push({
             function: spline,
@@ -33,7 +93,10 @@ function HermiteSplineChainWithCatmullRomTangents(constantV, pathPoints, theta0)
         });
         
         currentTime += arcLength/this.V;
-        tangent1 = tangent2;
+        tangent1 = {
+            x: tangent2.x,
+            y: tangent2.y
+        };
     }
     this.endTime = currentTime;
     console.log("splines.length = " + this.splines.length);
@@ -55,16 +118,25 @@ function HermiteSplineChainWithCatmullRomTangents(constantV, pathPoints, theta0)
     }
     
     this.wholeShape = function(nPointsPerSegment){
+        if(this.wholeShapePoints){
+            return this.wholeShapePoints;
+        }
+        
         var lastPoint = this.splines[0].function.evaluateAt(0);
         lastPoint.time = 0.0;
         var wholeShapePoints = [lastPoint];
+        
         this.splines.forEach(
-            function(s) {
-                for(var j = 1; j <= nPointsPerSegment; j++){
-                    var thisPoint = s.function.evaluateAt(1.0*j/nPointsPerSegment);
+            function(s)
+            {
+                var n = nPointsPerSegment || Math.round(s.arcLength / 10) || 10;
+                for(var j = 1; j <= n; j++)
+                {
+                    var thisPoint = s.function.evaluateAt(1.0*j/n);
                     var segmentTravelTime = getDistance(lastPoint, thisPoint) / this.V;
                     thisPoint.time = lastPoint.time + segmentTravelTime;
                     wholeShapePoints.push(thisPoint);
+                    
                     lastPoint = {
                         x: thisPoint.x,
                         y: thisPoint.y,
@@ -74,6 +146,7 @@ function HermiteSplineChainWithCatmullRomTangents(constantV, pathPoints, theta0)
                 }
             }
         )
+        this.wholeShapePoints = wholeShapePoints;
         return wholeShapePoints;
     }
     
