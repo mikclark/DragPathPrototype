@@ -7,38 +7,40 @@
     <script src="geometry.js"></script>
     <script src="splines.js"></script>
     <script src="numerical.js"></script>
+    <script src="missile_logic.js"></script>
     
     <body ng-controller="PathCtrl" ng-init="initialize()">
+        <div class="overlay whitetext">
+            INSTRUCTIONS:<br>Click-and-drag on the space ship to draw a "flight path" for it.<br>Click away from the ship to "fire".
+        </div>
         <svg id="spacecanvas"
              class="space"
-             ng-mousedown="isClickOnSprite($event)"
+             ng-mousedown="isClickOnSprite($event) ? startBuildingFightPath($event) : startFiring($event)"
              ng-mousemove="drawing && drawPath($event)"
-             ng-mouseleave="drawing && beginFlightPath()"
-             ng-mouseup="drawing && beginFlightPath()">
+             ng-mouseleave="(drawing && beginFlying()) || (hasStartedFiring && finishFiring($event))"
+             ng-mouseup="(drawing && !isClickOnSprite($event) && beginFlying()) || (hasStartedFiring && finishFiring($event))">
             
             <!--circle class="box" ng-style="sprite" ng-init="initialize()"></circle-->
-            <polygon ng-repeat="eachShape in sprite.shape"
+            <polygon id="ship"
+                     ng-repeat="eachShape in sprite.shape"
                      points="{{formatPoints(eachShape.points, sprite.cx, sprite.cy, sprite.currentAngle) || ''}}"
                      ng-style="eachShape.style"
                      class="shipShape" >
             </polygon>
             
-            <polyline ng-if="formattedPath" points="{{formattedPath || ''}}" class="flightPath"></polyline>
-            <polyline ng-if="smoothPath" points="{{smoothPath || ''}}" class="testPath1"></polyline>
+            <polygon ng-if="missiles"
+                     id="missiles"
+                     ng-repeat="missile in missiles"
+                     points="{{formatPoints(missile.points, missile.cx, missile.cy, missile.angle) || ''}}"
+                     ng-style="missile.style"
+                     class="shipShape">
+            </polygon>
             
-            <polyline ng-if="test.inputPoints" points="{{formatPoints(test.inputPoints, 100, 100)}}" class="testPath1"></polyline>
-            <polyline ng-if="test.outputPoints" points="{{formatPoints(test.outputPoints, 100, 100)}}" class="testPath2"></polyline>
-            <polyline ng-if="test.outputPoints2" points="{{formatPoints(test.outputPoints2, 100, 100)}}" class="testPath3"></polyline>
-            
+            <circle ng-repeat="i in pathPoints" cx="{{i.x}}" cy="{{i.y}}" r="4" class="pathPoints"/>
+            <polyline ng-if="smoothPath" points="{{smoothPath || ''}}" class="flightPath"></polyline>
             
         </svg>
-        <div>
-            <pre>{{numerical.tests | json}}</pre>
-        </div>
-        <div ng-if="true">
-            <div>inputPoints = {{test.inputPoints}}</div>
-            <div>outputPoints = {{formatPoints(test.outputPoints)}}</div>
-            <div>outputPoints = {{formatPoints(test.outputPoints)}}</div>
+        <div ng-if="false">
             <pre>pathPoints = {{pathPoints | json}}</pre>
             <pre>sprite = {{sprite | json}}</pre>
         </div>

@@ -1,28 +1,44 @@
-function HermiteSplineChainWithCatmullRomTangents(constantV, pathPoints, theta0) {
-    
-    
+function HermiteSplineChainWithCatmullRomTangents(constantV, pathPoints, theta0)
+{   
     var thetas = constructInitialGuessForThetas(pathPoints, theta0);
-    console.log("thetas = " + JSON.stringify(thetas,null,4));
-    
     var splineChain = HermiteSplineChainFromPointsAndTangents(constantV, pathPoints, thetas);
+    return splineChain
+}
+
+function improveSplineChain(splineChain)
+{
+    var thetas = Array.from(splineChain.thetas);
+    var constantV = splineChain.V;
+    var pathPoints = splineChain.pathPoints.map(function(x){return Object.assign({}, x);});
     
-    /*for(var iteration = 0; iteration < 5; iteration++) {
-        splineChain = HermiteSplineChainFromPointsAndTangents(constantV, pathPoints, thetas);
-        var kappa0 = getTotalCurvatureOfPoints(splineChain.wholeShape());
+    var kappa0 = getTotalCurvatureOfPoints(splineChain.wholeShape());
+    for(var iteration = 0; iteration < 5; iteration++)
+    {
+        
+        console.log("kappa = " + kappa0 + "\nthetas = " + JSON.stringify(thetas,null,4));
         
         var delta = 0.01;
-        var gradientKappa = []
-        for(var iTheta = 1; iTheta < thetas.length; iTheta++){
+        var gradientKappa = [0.0];
+        for(var iTheta = 1; iTheta < thetas.length; iTheta++)
+        {
             thetas[iTheta] += delta;
             var perturbedChain = HermiteSplineChainFromPointsAndTangents(constantV, pathPoints, thetas);
-            gradientKappa.push( getTotalCurvatureOfPoints(perturbedChain.wholeShape()) - kappa0);
+            var thisGradientKappa = getTotalCurvatureOfPoints(perturbedChain.wholeShape()) - kappa0;
+            gradientKappa.push(thisGradientKappa);
             thetas[iTheta] -= delta;
         }
         
+        var factor = 0.0000001;
+        var newThetas = thetas.map(function(x,i){return x - factor*gradientKappa[i];});
+        console.log("newThetas = " + JSON.stringify(newThetas));
+        splineChain = HermiteSplineChainFromPointsAndTangents(constantV, pathPoints, newThetas);
+        var kappa = getTotalCurvatureOfPoints(splineChain.wholeShape());
+        console.log("factor = " + factor + "\nkappa = " + kappa + "\nthetas = " + JSON.stringify(newThetas,null,4));
         
-    }*/
-    
-    return splineChain
+        thetas = Array.from(newThetas);
+        kappa0 = kappa;
+    }
+    return splineChain;
 }
 
 function constructInitialGuessForThetas(pathPoints, theta0) {
@@ -47,6 +63,8 @@ function constructInitialGuessForThetas(pathPoints, theta0) {
     
 function HermiteSplineChainFromPointsAndTangents(constantV, pathPoints, thetas) {
     this.V = constantV;
+    this.pathPoints = Array.from(pathPoints);
+    this.thetas = Array.from(thetas);
     this.splines = [];
     this.wholeShapePoints = null;
     

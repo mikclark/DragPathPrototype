@@ -20,47 +20,43 @@ app.controller('PathCtrl', function PathCtrl($scope, $window, $interval) {
             r: radius,
             maximumTurnAngle: maximumTurnAngle,
             maximumTurnCosAngle: Math.cos(maximumTurnAngle),
-            shape: createXWing(),
+            shape: createMilleniumFalcon(),
             velocity: 150
         };
+        $scope.missiles = [];
         
-        var segment = 200;
-        var inputPoints = [{x:100,y:100},{x:100,y:100+segment},{x:100+segment,y:100+segment},{x:100+segment,y:100}];
-        var hermite1 = new HermiteSplineChainWithCatmullRomTangents($scope.sprite.velocity, inputPoints, Math.PI);
-        //var hermite2 = new HermiteSplineChainWithCatmullRomTangents($scope.sprite.velocity, inputPoints, Math.PI);
-        $scope.test = {
-            inputPoints: inputPoints,
-            outputPoints: hermite1.wholeShape(20),
-            //outputPoints2: hermite2.wholeShape(20)
-        };
-        
-        $scope.numerical = {
-            tests: [
-                [0.0, goldenRatioMinimization(function(x){return x*x;}, -1.0, 1.0)],
-                [-1.57, goldenRatioMinimization(function(x){return Math.cos(2.0*x);}, 0.0, 3.0)],
-                [1.0, goldenRatioMinimization(function(x){return x*x*x - 3*x + 1.0;}, 0.0, 3.0)]
-            ]
-        }
     };
     
     $scope.isClickOnSprite = function(event){
-        if ((getDistance(event, $scope.sprite) || 1e9) <= $scope.sprite.r) {
-            if(angular.isDefined(inFlight)){
-                $interval.cancel(inFlight);
-                inFlight = undefined;
-            }
-            $scope.drawing = true;
-            $scope.pathPoints = [
-                {
-                    x: $scope.sprite.cx, 
-                    y: $scope.sprite.cy, 
-                    time:0,
-                    theta: $scope.sprite.currentAngle
-                }
-            ];
-        }
+        return (getDistance(event, $scope.sprite) || 1e9) <= $scope.sprite.r;
     }
     
+    $scope.startBuildingFightPath = function(event){
+        if(angular.isDefined(inFlight)){
+            $interval.cancel(inFlight);
+            inFlight = undefined;
+        }
+        $scope.drawing = true;
+        $scope.pathPoints = [
+            {
+                x: $scope.sprite.cx, 
+                y: $scope.sprite.cy, 
+                time:0,
+                theta: $scope.sprite.currentAngle
+            }
+        ];
+    }
+    
+    $scope.startFiring = function(event){
+        $scope.hasStartedFiring = true;
+        return missileStartFiring(event, $scope.sprite, $interval);
+    }
+    $scope.finishFiring = function(event){
+        $scope.hasStartedFiring = false;
+        var newMissile = missileFinishFiring(event, $scope.sprite, $interval);
+        $scope.missiles.push(newMissile);
+    }
+        
     $scope.drawPath = function(event) {
         var lastPoint = $scope.pathPoints[$scope.pathPoints.length - 1];
         $scope.formattedPath = $scope.formatPoints($scope.pathPoints);
@@ -127,7 +123,7 @@ app.controller('PathCtrl', function PathCtrl($scope, $window, $interval) {
     }
     
     var inFlight;
-    $scope.beginFlightPath = function(){
+    $scope.beginFlying = function(){
         if(angular.isDefined(inFlight) || $scope.pathPoints.length < 2){
             return;
         }
@@ -144,10 +140,12 @@ app.controller('PathCtrl', function PathCtrl($scope, $window, $interval) {
         console.log("splines:\n" + JSON.stringify(splines.splines,
             ["function", "point1","point2","tangent1","tangent2","arcLength","x","y","time","theta","startTime","endTime"],
             4));
-        $scope.smoothedPathPoints = splines.wholeShape();
+        $scope.originalSmoothedPathPoints = splines.wholeShape();
+        $scope.smoothedPathPoints = improveSplineChain(splines).wholeShape();
         //$scope.smoothedPathPoints = $scope.pathPoints;
+        $scope.originalSmoothPath = $scope.formatPoints($scope.originalSmoothedPathPoints);
         $scope.smoothPath = $scope.formatPoints($scope.smoothedPathPoints);
-        console.log("smoothedPathPoints:\n" + JSON.stringify($scope.smoothedPathPoints,sortKeysReplacer,4));
+        console.log("smoothedPathPoints:\n" + JSON.stringify($scope.originalSmoothedPathPoints,sortKeysReplacer,4));
         console.log("\nBUILD TIME: \n" + 0.001*(new Date() - timer) + "\n");
         var nthSegment = 0;
         $scope.flightStartTime = new Date();

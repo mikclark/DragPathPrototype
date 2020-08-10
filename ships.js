@@ -130,3 +130,96 @@ function createAWing(){
         mirror(blaster,'x')
     ]
 }
+
+function createMilleniumFalcon(){
+    var body1 = {
+        points: [
+            {x:16, y:0},
+            {x:16, y:4},
+            {x:30, y:4},
+            {x:30, y:6},
+            {x:8.0, y:13.86},
+            {x:0, y:16},
+            {x:-8.0, y:13.86},
+            {x:-11.3, y:11.3},
+            {x:-13.86, y:8.0},
+            {x:-16, y:0}
+        ]
+    };
+    var body = {
+        style:{
+            fill: 'gray',
+            stroke: 'white'
+        },
+        points: body1.points.concat(mirror(body1,'y').points.reverse())
+    };
+    
+    var cockpit = {
+        style:{
+            fill: "dimgray",
+            stroke: "white"
+        },
+        points: [
+            {x:4, y:5.86},
+            {x:8, y:13.86},
+            {x:12, y:13.86},
+            {x:13, y:15.86},
+            {x:13, y:16.86},
+            {x:12, y:17.86},
+            {x:4, y:17.86},
+            {x:0, y:7.86}
+            
+        ]
+    };
+    
+    var dish = {
+        style: {
+            fill: "dimgray",
+            stroke: "white"
+        },
+        points :[
+            {x:10,y:-6},
+            {x:10,y:-4},
+            {x:9,y:-4},
+            {x:8,y:-7},
+            {x:8,y:-9},
+            {x:9,y:-9},
+            {x:10,y:-6},
+            {x:7,y:-6},
+            {x:7,y:-7},
+            {x:10,y:-7}
+        ]
+    };
+    
+    /*var engine = [
+        {x:-30,y:-16},
+        {x:-32,y:-48},
+        {x:-32,y:-75},
+        {x:-16,y:-75},
+        {x:-16,y:-16}
+    ];
+    var blaster = [
+        {x:48,y:28},
+        {x:49,y:0},
+        {x:49,y:-20},
+        {x:45,y:-20},
+        {x:45,y:-10},
+        {x:42,y:-10},
+        {x:42,y:-8},
+        {x:45,y:-8},
+        {x:45,y:0},
+        {x:46,y:28}
+    ];
+    return [
+        engine,
+        mirror(engine,'x'),
+        body,
+        blaster,
+        mirror(blaster,'x')
+    ]*/
+    return [
+        body,
+        cockpit,
+        dish
+    ];
+}
