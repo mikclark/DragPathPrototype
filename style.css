@@ -9,6 +9,19 @@
     background: black;
     position: fixed;
 }
+
+.overlay {
+    position: fixed;
+    width: auto;
+    height: auto;
+    top: 20;
+    left: 20;
+    background-color: rgba(0,0,0,1);
+}
+.whitetext {
+    color: white;
+}
+
 .space {
     margin: 0%;
     width: 100%;
@@ -19,6 +32,12 @@
     fill: none;
     stroke: white;
     stroke-width: 2px;
+    opacity: 0.5;
+}
+.pathPoints {
+    stroke: none;
+    fill: white;
+    opacity: 0.5;
 }
 .testPath1 {
     fill: none;

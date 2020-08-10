@@ -10,73 +10,83 @@ app.controller('PathCtrl', function PathCtrl($scope, $window, $interval) {
     $scope.pathPoints = [];
     
     $scope.initialize = function() {
-        var radius = $window.innerWidth * 0.02;
+        var radius = 60; //$window.innerWidth * 0.02;
+        var maximumTurnAngle = 0.5*Math.PI;
         $scope.sprite = {
             cx: $window.innerWidth/2,
             cy: $window.innerHeight/2,
             currentAngle: -0.5*Math.PI,
             fill: 'cyan',
             r: radius,
-            shape: createXWing(),
+            maximumTurnAngle: maximumTurnAngle,
+            maximumTurnCosAngle: Math.cos(maximumTurnAngle),
+            shape: createMilleniumFalcon(),
             velocity: 150
         };
+        $scope.missiles = [];
         
-        var inputPoints = [{x:100,y:100},{x:100,y:200},{x:200,y:200},{x:200,y:100}];
-        var hermite1 = new HermiteSplineChainWithCatmullRomTangents($scope.sprite.velocity, inputPoints, Math.PI);
-        //var hermite2 = new HermiteSplineChainWithCatmullRomTangents($scope.sprite.velocity, inputPoints, Math.PI);
-        $scope.test = {
-            inputPoints: inputPoints,
-            outputPoints: hermite1.wholeShape(20),
-            //outputPoints2: hermite2.wholeShape(20)
-        };
     };
     
     $scope.isClickOnSprite = function(event){
-        if ((getDistance(event, $scope.sprite) || 1e9) <= $scope.sprite.r) {
-            if(angular.isDefined(inFlight)){
-                $interval.cancel(inFlight);
-                inFlight = undefined;
-            }
-            $scope.drawing = true;
-            $scope.pathPoints = [
-                {
-                    x: $scope.sprite.cx, 
-                    y: $scope.sprite.cy, 
-                    time:0,
-                    angle: $scope.sprite.currentAngle
-                }
-            ];
-        }
+        return (getDistance(event, $scope.sprite) || 1e9) <= $scope.sprite.r;
     }
     
+    $scope.startBuildingFightPath = function(event){
+        if(angular.isDefined(inFlight)){
+            $interval.cancel(inFlight);
+            inFlight = undefined;
+        }
+        $scope.drawing = true;
+        $scope.pathPoints = [
+            {
+                x: $scope.sprite.cx, 
+                y: $scope.sprite.cy, 
+                time:0,
+                theta: $scope.sprite.currentAngle
+            }
+        ];
+    }
+    
+    $scope.startFiring = function(event){
+        $scope.hasStartedFiring = true;
+        return missileStartFiring(event, $scope.sprite, $interval);
+    }
+    $scope.finishFiring = function(event){
+        $scope.hasStartedFiring = false;
+        var newMissile = missileFinishFiring(event, $scope.sprite, $interval);
+        $scope.missiles.push(newMissile);
+    }
+        
     $scope.drawPath = function(event) {
         var lastPoint = $scope.pathPoints[$scope.pathPoints.length - 1];
         $scope.formattedPath = $scope.formatPoints($scope.pathPoints);
         
-        // We need a better curvature check than this. Recommend: cos(q) = a.b / |a||b|,
-        // since the linear distances |a| and |b| must be computed at some point.
         var d = getDistance(event, lastPoint);
         
         if ( d && d >= $scope.sprite.r ) {
-            var dx = event.x - lastPoint.x;
-            var dy = event.y - lastPoint.y;
-            var currentPoint = {
-                x: event.x,
-                y: event.y,
-                time: d/$scope.sprite.velocity + lastPoint.time,
-                angle: Math.atan2(dy, dx)
-            };
-            
-            // Update the "angle" of the previous* point using the midpoint-angle approximation
+            // curvature check
             if($scope.pathPoints.length > 2) {
                 var secondLastPoint = $scope.pathPoints[$scope.pathPoints.length - 2];
-                var d2x = event.x - secondLastPoint.x;
-                var d2y = event.y - secondLastPoint.y;
-                lastPoint.angle = Math.atan2(d2y, d2x);
+                
+                var dotProduct = (event.x - lastPoint.x)*(lastPoint.x - secondLastPoint.x) + (event.y-lastPoint.y)*(lastPoint.y-secondLastPoint.y);
+                var cosAngle = dotProduct/d/getDistance(lastPoint,secondLastPoint);
+                if(cosAngle < $scope.sprite.maximumTurnCosAngle){
+                    // Curvature is too tight.
+                    return;
+                }
+            } else {
+                var firstPathAngle = Math.atan2(event.y - lastPoint.y, event.x - lastPoint.x);
+                if ( Math.abs(firstPathAngle - $scope.sprite.currentAngle) > $scope.sprite.maximumTurnAngle ) {
+                    return;
+                }
             }
-            
+                        
             // Now add the new point to pathPoints.
-            $scope.pathPoints.push(currentPoint);
+            $scope.pathPoints.push({
+                x: event.x,
+                y: event.y,
+                distance: d
+            });
         }
     }
     
@@ -113,7 +123,7 @@ app.controller('PathCtrl', function PathCtrl($scope, $window, $interval) {
     }
     
     var inFlight;
-    $scope.beginFlightPath = function(){
+    $scope.beginFlying = function(){
         if(angular.isDefined(inFlight) || $scope.pathPoints.length < 2){
             return;
         }
@@ -122,28 +132,39 @@ app.controller('PathCtrl', function PathCtrl($scope, $window, $interval) {
         // which the sprite is supposed to reach each point. We then interrogate
         // the current time and interpolate.
         $scope.drawing = false;
-        $scope.flightStartTime = new Date();
         $scope.formattedPath = $scope.formatPoints($scope.pathPoints);
         
+        var timer = new Date();
+        console.log("pathPoints:\n" + JSON.stringify($scope.pathPoints,sortKeysReplacer,4));
+        var splines = HermiteSplineChainWithCatmullRomTangents($scope.sprite.velocity, $scope.pathPoints, $scope.sprite.currentAngle);
+        console.log("splines:\n" + JSON.stringify(splines.splines,
+            ["function", "point1","point2","tangent1","tangent2","arcLength","x","y","time","theta","startTime","endTime"],
+            4));
+        $scope.originalSmoothedPathPoints = splines.wholeShape();
+        $scope.smoothedPathPoints = improveSplineChain(splines).wholeShape();
+        //$scope.smoothedPathPoints = $scope.pathPoints;
+        $scope.originalSmoothPath = $scope.formatPoints($scope.originalSmoothedPathPoints);
+        $scope.smoothPath = $scope.formatPoints($scope.smoothedPathPoints);
+        console.log("smoothedPathPoints:\n" + JSON.stringify($scope.originalSmoothedPathPoints,sortKeysReplacer,4));
+        console.log("\nBUILD TIME: \n" + 0.001*(new Date() - timer) + "\n");
+        var nthSegment = 0;
+        $scope.flightStartTime = new Date();
+        
+        
         function calculatePosition(flightTime){
-            var fraction = (flightTime - $scope.pathPoints[0].time)/($scope.pathPoints[1].time - $scope.pathPoints[0].time);
-            $scope.fraction = fraction;
-            if(fraction < 1.0){
-                $scope.sprite.cx = $scope.pathPoints[0].x + fraction * ($scope.pathPoints[1].x - $scope.pathPoints[0].x);
-                $scope.sprite.cy = $scope.pathPoints[0].y + fraction * ($scope.pathPoints[1].y - $scope.pathPoints[0].y);
-                $scope.sprite.currentAngle = interpolateAngle($scope.pathPoints[0].angle, $scope.pathPoints[1].angle, fraction);
-            } else {
-                if ($scope.pathPoints.length == 2){
-                    // End of the path. Terminate flight loop.
-                    $interval.cancel(inFlight);
-                    inFlight = undefined;
-                    $scope.pathPoints = [];
-                } else {
-                    // Remove this point and repeat the flight path calculation with the new point.
-                    $scope.pathPoints.splice(0,1);
-                    calculatePosition(flightTime);
-                }
+            if (flightTime > $scope.smoothedPathPoints[$scope.smoothedPathPoints.length-1].time){
+                // End of the path. Terminate flight loop.
+                $interval.cancel(inFlight);
+                inFlight = undefined;
+                $scope.pathPoints = [];
+                return;
             }
+            
+            var currentState = evaluatePathAtTime($scope.smoothedPathPoints, flightTime, nthSegment);
+            nthSegment = currentState.index;
+            $scope.sprite.cx = currentState.x;
+            $scope.sprite.cy = currentState.y;
+            $scope.sprite.currentAngle = currentState.theta;
         }
         
         inFlight = $interval(function(){
